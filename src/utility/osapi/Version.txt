@@ -1,0 +1,44 @@
+
+
+/******************************************************************
+*    osapi  - 为跨平台C++编程而设计
+*       本套接口适用于win32/linux平台, 封装了thread, mutex, semaphore, shared memory , 
+*        socket, bigint等接口和类型。
+*    
+*
+*    作者  邵发  
+*    始于  2011-06-24
+*    email:  shaofa@vip.163.com
+******************************************************************/
+
+
+2011-06-24  建立Library
+
+2011-07-27  邵发
+  (*) 修改Socket，把成员变量名改成hSock; 修改Open() , Close()里的hSock的判定，加上(int)强转
+       因为在windows下无效socket的值是0xFFFFFFFF（无符号整型), linux的socket类型是int型
+       
+  (*) 把取得程序当前位置的函数改名为 ExePath(), 同时固定以斜线/作为分隔符
+
+2011-08-26  修改osapi.cpp里的ExePath()，解决路径为乱码的问题
+
+2011-08-30  修改thead_linux.cpp，用nanosleep实现Msleep()函数
+
+2011-09-14 修改time.h，增加To()差值函数
+
+2011-10-13 在osapi.h里增加OS_Log接口
+
+2011-10-15 在time.h里增加MsTo直接算出两个OS_TimeVal的差值　
+
+2011-10-17 修改ExePath(), 返回静态变量的引用
+
+2011-12-07 Socket在Open()函数里出错，应该在Open()返回之前把hSock关闭并设为-1
+
+2011-12-09 线程改用_beginthreadex(), 因为发现在QT下线程回收时不正能正常回收，有内存泄漏。
+
+2012-10-11 胡潮平
+	1、修改pthread_*函数的返回值判断，非0为错误状态。
+
+2012-10-17 白福铭
+	1、扩展OS_Thread支持指定线程函数。
+

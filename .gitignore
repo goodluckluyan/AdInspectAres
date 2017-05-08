@@ -1,0 +1,57 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+
+# vc8 solution file
+*.ncb
+*.suo
+*.user
+# vc10 solution file
+*.opensdf
+*.xml
+*.htm
+*.sdf
+*.ipch
+# qt creator file
+*.config
+*.creator
+*.files
+*.includes
+*.creator.*
+#dir
+bin/
+
+#vim bk file
+*~
+*.swp
+
+#tags
+tags
+
+#webservice
+soapObject.h
+
+#bak
+*.bak
