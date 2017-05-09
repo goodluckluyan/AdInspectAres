@@ -40,6 +40,12 @@ private:
     // 获取当天时间的秒数
     int GetCursecond();
 
+    // 获取当天零点的秒数
+    int GetCurZeroSec()
+    {
+        return m_iZeroTime;
+    }
+
 private:
 
     //每天0点对应的时间，以秒计。

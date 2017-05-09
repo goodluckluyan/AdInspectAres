@@ -112,6 +112,10 @@ public:
     // 广告模板保存路径
     std::string m_Templet_Store_path;
 
+    // 广告模板视频路径
+    std::string m_Templet_Video_path;
+
+
     // 转码后图片分辨率调整
     int m_Decode_width;
     int m_Decode_height;
@@ -145,6 +149,9 @@ public:
 
     // 比对成功的阈值
     float m_WeightThreshold;
+
+    // 是否速度优先
+    bool m_IsSpeedPriority;
 
 private:
     static C_Para *m_pInstance;

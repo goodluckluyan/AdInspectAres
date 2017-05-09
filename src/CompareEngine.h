@@ -127,7 +127,7 @@ private:
     int CreateSearchArea(FrameBufferLoop *fbl);
 
     // 对录播图按搜索范围进行比对
-    int image_compare(int index,ptrSearchArea inspect);
+    int Image_compare(int index,ptrSearchArea inspect,bool bSpeedPriority=false);
 
     // 对录播图的邻居进行标注
     int Label_inspect(int start,int end,_TEMPLET_ITEM* lable);

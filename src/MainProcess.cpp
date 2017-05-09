@@ -497,11 +497,19 @@ void CMainProcess::Print(int enType)
 int CMainProcess::WS_AddInspectModule(std::string &id,string &OrderNO,string &AdName,int CinemaNum,std::string& start,
                                       std::string & end,int ShowOder,int Type,std::string &ModulePath )
 {
-    loginfo("ws invoke(id:%s OriderNo:%s AdName:%s CinemaNum:%d)\n",id.c_str(),OrderNO.c_str(),AdName.c_str(),CinemaNum);
-    loginfo("ws invoke(start:%s end:%s showorder:%d type:%d modulepath:%s)\n",start.c_str(),end.c_str(),ShowOder,Type,ModulePath.c_str());
 
+
+    std::string basepath = C_Para::GetInstance()->m_Templet_Video_path;
+    if(basepath.rfind("/")!=basepath.size()-1)
+    {
+        basepath+="/";
+    }
+    std::string mp4path =basepath + ModulePath;
+
+    loginfo("ws invoke(id:%s OriderNo:%s AdName:%s CinemaNum:%d)\n",id.c_str(),OrderNO.c_str(),AdName.c_str(),CinemaNum);
+    loginfo("ws invoke(start:%s end:%s showorder:%d type:%d modulepath:%s)\n",start.c_str(),end.c_str(),ShowOder,Type,mp4path.c_str());
     m_mutxCreateTemple.EnterCS();
-    ptrTempletInfo ptr(new TempletInfos(id,OrderNO,AdName,CinemaNum,start,end,ShowOder,Type,ModulePath));
+    ptrTempletInfo ptr(new TempletInfos(id,OrderNO,AdName,CinemaNum,start,end,ShowOder,Type,mp4path));
     m_lstCreateTempleTask.push_back(ptr);
     pthread_cond_signal(&m_condCreateTemple);
     m_mutxCreateTemple.LeaveCS();
@@ -523,21 +531,23 @@ int CMainProcess::WS_AddInspectModule(std::string &id,string &OrderNO,string &Ad
 int CMainProcess::BC_VideoDownLoadComplete(void * ptr,int HallID,int CameraPos,time_t Start,
                                            int Duration,std::string FilePath,bool bResultVideo)
 {
+    char buff[32]={'\0'};
+    strftime(buff,32,"%Y-%m-%d %H:%M:%S",localtime(&Start));
     if(!bResultVideo)
     {
         // 录播待比对视频
         CMainProcess * pthis = (CMainProcess*)ptr;
         C_GuardCS guard(&pthis->m_mutxVideoFileMap);
         pthis->m_mapVideoFile[HallID].push_back(ptrVideoFile(new VideoFile(HallID,CameraPos,Start,Duration,FilePath)));
-        loginfo("vedio file download complete( %d hall %d camera file:%s start:%d,duration:%d) ",HallID,CameraPos,FilePath.c_str(),
-                Start,Duration);
+        loginfo("vedio file download complete( %d hall %d camera file:%s start:%s,duration:%d) ",
+                HallID,CameraPos,FilePath.c_str(),buff,Duration);
 
     }
     else
     {
         // 比对结果视频
-        loginfo("ResultVedio(%d-%d-%d-%d %s) DownLoad Complete!\n",
-               HallID,CameraPos,Start,Duration,FilePath.c_str());
+        loginfo("ResultVedio(%d-%d-%s-%d %s) DownLoad Complete!\n",
+               HallID,CameraPos,buff,Duration,FilePath.c_str());
     }
 
     return 0;
@@ -594,7 +604,8 @@ int  CMainProcess::BC_CheckLongbiaoComplete(void *userdata,void *pmarkjobresult)
                 tmpCurVideoFile->ptrBufferLoop = ptrResult->pframeloop;
                 tmpCurVideoFile->Status = READYCOMPARE;
                 tmpCurVideoFile->DecodecPos = ptrResult->find_pos+1;
-                loginfo("Find Longbiao ,Ready compare task (uuid:%s) ",tmpCurVideoFile->UUID.c_str() );
+                loginfo("Find Longbiao ,Ready compare task (uuid:%s %d) ",
+                        tmpCurVideoFile->UUID.c_str(),ptrResult->find_pos );
             }
         }
     }
@@ -658,26 +669,43 @@ int CMainProcess::CompareComplete(std::string &taskid)
             }
 
             // 设置为完成，完成标识所有操作已经完成，清空当前指针
-            if(tmpCurVideoFile != NULL && tmpCurVideoFile->DecodecPos >= tmpCurVideoFile->Duration)
+            if(tmpCurVideoFile != NULL && abs(tmpCurVideoFile->DecodecPos - tmpCurVideoFile->Duration)<=10)
             {
                 C_GuardCS gardv(&m_mutxVideoFileMap);
                 tmpCurVideoFile->Status = COMPLETE;
-                tmpCurVideoFile.reset();
                 loginfo("Compare complete ,all task complete(uuid:%s path:%s) ",
                         tmpCurVideoFile->UUID.c_str(),tmpCurVideoFile->FilePath.c_str());
+                fit->second.reset();
+
+            }
+            else if(tmpCurVideoFile != NULL && abs(tmpCurVideoFile->DecodecPos - tmpCurVideoFile->Duration)>10)
+            {
+                C_GuardCS gardv(&m_mutxVideoFileMap);
+
+                // 对没有检测完成的文件设置为继续检测龙标，清空当前指针
+                tmpCurVideoFile->DecodecPos+=10;
+                if(tmpCurVideoFile->DecodecPos > tmpCurVideoFile->Duration)
+                {
+                    tmpCurVideoFile->DecodecPos = tmpCurVideoFile->Duration;
+                    tmpCurVideoFile->Status = COMPLETE;
+                    loginfo("Compare complete ,all task complete(uuid:%s path:%s) ",
+                            tmpCurVideoFile->UUID.c_str(),tmpCurVideoFile->FilePath.c_str());
+                }
+                else
+                {
+                     tmpCurVideoFile->Status = READY;
+                     loginfo("Compare complete ,all task complete but mark vediofile uncomplete,"
+                             "so this file will continue mark! (uuid:%s path:%s decode_pos:%d duration:%d) ",
+                             tmpCurVideoFile->UUID.c_str(),tmpCurVideoFile->FilePath.c_str(),
+                             tmpCurVideoFile->DecodecPos,tmpCurVideoFile->Duration);
+                }
+
+
+                fit->second.reset();
+
             }
         }
-        else if(tmpCurVideoFile != NULL && tmpCurVideoFile->DecodecPos < tmpCurVideoFile->Duration)
-        {
-            C_GuardCS gardv(&m_mutxVideoFileMap);
 
-            // 对没有检测完成的文件设置为继续检测龙标，清空当前指针
-            tmpCurVideoFile->Status = READY;
-            tmpCurVideoFile.reset();
-            loginfo("Compare complete ,all task complete but mark vediofile uncomplete,"
-                    "so this file will continue mark! (uuid:%s path:%s) ",
-                    tmpCurVideoFile->UUID.c_str(),tmpCurVideoFile->FilePath.c_str());
-        }
 
     }
     return 0;

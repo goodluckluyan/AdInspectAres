@@ -165,17 +165,57 @@ bool CDownLoadMgr::AddResultSampleDownTask(DownLoadInfoItem &taskitem)
 bool CDownLoadMgr::AddDownTask()
 {
 
+    C_Para *para = C_Para::GetInstance();
     DownLoadInfoItem item;
     if(m_lastsec == 0)
     {
         time_t tm;
         time(&tm);
-        m_lastsec = (int)tm-900;
+        m_lastsec = (int)tm-m_TimeStep;
 
     }
+
+
+    // 当前日期的零点秒数
+    time_t iCurTime;
+    time(&iCurTime);
+    char str[20]={'\0'};
+    sprintf(str,"%d-%02d-%02d", 1900+localtime(&iCurTime)->tm_year,localtime(&iCurTime)->tm_mon+1,
+            localtime(&iCurTime)->tm_mday);
+    C_Time t2;
+    std::string curday = std::string(str) + " 00:00:00";
+    t2.setTimeStr(curday);
+    int iStarTime = t2.getTimeInt() + m_startsec;
+    int iEndTime = t2.getTimeInt() + m_endsec;
+
+    // 判断在不在放映时间内
+    if(m_lastsec+1 > iEndTime || m_lastsec + 1 < iStarTime)
+    {
+        C_Time cur,start,end;
+        cur.setTimeInt(m_lastsec);
+        std::string curTime,strStart,strEnd;
+        cur.getTimeStr(curTime);
+
+        start.setTimeInt(iStarTime);
+        start.getTimeStr(strStart);
+        end.setTimeInt(iEndTime);
+        end.getTimeStr(strEnd);
+        loginfo("Current time not in show time range(%s %s-%s)",curTime.c_str(),
+                strStart.c_str(),strEnd.c_str());
+        return false;
+    }
+
     item.start = m_lastsec + 1;
-    item.duration = m_TimeStep-1;
     item.savepath = m_savepath;
+    int itemend = item.start + m_TimeStep-1;
+    if(itemend > iEndTime)
+    {
+        item.duration = iEndTime-item.start + 1;
+    }
+    else
+    {
+         item.duration = m_TimeStep;
+    }
 
 
     AddDownTask(item);
@@ -211,14 +251,14 @@ void CDownLoadMgr::ProcessDownTask()
     std::string filepath;
     if(m_lstSampleDownloadTask.size()!=0)
     {
-        DownLoadInfoItem &task = m_lstDownloadTask.front();
+        DownLoadInfoItem &task = m_lstSampleDownloadTask.front();
         char taskid[32]={'\0'};
         snprintf(taskid,32,"%d-%d-%d-%d",m_HallID,m_CameraPos,task.start,task.duration);
 
         // 转换成可读时间
         C_Time t1,t2;
         t1.setTimeInt(task.start);
-        t2.setTimeInt(task.start+task.duration);
+        t2.setTimeInt(task.start+task.duration-1);
         std::string strStart,strEnd;
         t1.getTimeStr(strStart);
         t2.getTimeStr(strEnd);
@@ -290,7 +330,7 @@ void CDownLoadMgr::ProcessDownTask()
         std::string strStart,strEnd;
         t1.setTimeInt(task.start);
         t1.getTimeStr(strStart);
-        t2.setTimeInt(task.start + task.duration);
+        t2.setTimeInt(task.start + task.duration - 1);
         t2.getTimeStr(strEnd);
 
         // 是否已经存在
@@ -399,14 +439,14 @@ bool CDownLoadMgr::AddDayTask(struct tm &day)
     int iZeroTime = t2.getTimeInt() + m_startsec;
 
     int endsec = std::min((int)iCurTime,t2.getTimeInt()+m_endsec);
-    for(int i = 0;i < endsec;i += m_TimeStep)
+    for(;iZeroTime < endsec;iZeroTime += m_TimeStep)
     {
         DownLoadInfoItem item;
-        item.start = iZeroTime + i;
-        item.duration = m_TimeStep-1;
+        item.start = iZeroTime;
+        item.duration = m_TimeStep;
         item.savepath = m_savepath;
         AddDownTask(item);
-        m_lastsec = item.start+item.duration;
+        m_lastsec = item.start+item.duration-1;
     }
 }
 
@@ -545,7 +585,7 @@ bool CDownLoadMgr::DownVidoFile(DownLoadInfoItem &task,long long &downloadid,std
 
     C_Time t1,t2;
     t1.setTimeInt(task.start);
-    t2.setTimeInt(task.start+task.duration);
+    t2.setTimeInt(task.start+task.duration-1);
 
 
 

@@ -20,6 +20,7 @@ C_Para *C_Para::m_pInstance = NULL;
 C_Para::C_Para()
 {
     m_WeightThreshold = 0.1;
+    m_IsSpeedPriority = false;
 	pthread_rwlock_init(&m_rwlk_main,NULL);
 
 }
@@ -213,6 +214,15 @@ int C_Para::ReadPara()
     loginfo("reading config ,save path what templet image  :%s",m_Templet_Store_path.c_str());
 
     memset(a,0,64);
+    iResult = config.readvalue("PARA","TempletVideoPath",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    m_Templet_Video_path = a ;
+    loginfo("reading config ,templet video store path  :%s",m_Templet_Video_path.c_str());
+
+    memset(a,0,64);
     iResult = config.readvalue("PARA","DecodeWidth",a,strInipath.c_str());
     if(iResult != 0)
     {
@@ -325,6 +335,15 @@ int C_Para::ReadPara()
     }
     m_WeightThreshold = atof(a);
     loginfo("reading config ,WeightThreshold:%f",m_WeightThreshold);
+
+    memset(a,0,64);
+    iResult = config.readvalue("PARA","IsSpeedPriority",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    m_IsSpeedPriority = atoi(a)==1?true:false;
+    loginfo("reading config ,IsSpeedPriority:%s",m_IsSpeedPriority?"Yes":"No");
 
 	return 0;
 
