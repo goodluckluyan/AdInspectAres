@@ -38,9 +38,14 @@ struct VideoFile
         Status = READY;
         DecodecPos = 0;
         char buf[64]={'\0'};
-        sprintf(buf,"%d-%d-%d-%d",hallid,camerapos,start,duration);
+        C_Time ctm;
+        ctm.setTimeInt(start);
+        std::string strctm;
+        sprintf(buf,"%d-%d-%d%d%d%d%d-%d",hallid,camerapos,ctm.getYear(),ctm.getMonth(),
+                ctm.getDay(),ctm.getHour(),ctm.getMinute(),duration);
         UUID = buf;
         ptrBufferLoop = NULL;
+
     }
 
     std::string UUID;         // 唯一标识
@@ -52,6 +57,7 @@ struct VideoFile
     int DecodecPos;           // 解码开始位置
     VideoFileStatus Status;
     void *ptrBufferLoop;
+
 };
 
 struct TempletInfos

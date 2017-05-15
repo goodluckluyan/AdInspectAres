@@ -10,7 +10,7 @@
 
 using namespace std;
 
-#define BUFFER_MAX_SIZE		900
+#define BUFFER_MAX_SIZE		700
 
 #define MAX_VIDEO_FRAME_LEN		2097152//1048576=1M 2097152=2M
 #define MAX_TIME_LEN		20

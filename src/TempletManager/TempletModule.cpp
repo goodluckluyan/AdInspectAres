@@ -239,8 +239,15 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
 	int videoWidth = pInputCodecContext->width;
     int videoHeight = pInputCodecContext->height;
 	///帧率
-   /// float frameRate = (float)avRation.den/avRation.num;
-	int frameRate = pInputCodecContext->framerate.num;
+    /// float frameRate = (float)avRation.den/avRation.num;
+    int frameRate = pInputFormatContext->streams[videoIndex]->avg_frame_rate.num;
+    if(frameRate == 0)
+    {
+        printf("error,frameRate is 0.\n");
+        return -1;
+    }
+
+    //int frameRate = pInputCodecContext->framerate.num;
 	sprintf(task_item->videoWidth,"%d",pInputCodecContext->width);
 	sprintf(task_item->videoHeight,"%d",pInputCodecContext->height);
 	sprintf(task_item->realDuration,"%d",realDuration);
@@ -331,8 +338,7 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
 #if 1
 		//time_t testTime;
 		//time(&testTime);
-		//printf("testTime:%d\n",testTime);
-		
+		//printf("testTime:%d\n",testTime);        
 		 if(nComplete > 0)
         { 
 			////frameRate
@@ -649,8 +655,8 @@ int TempletManager::GetAllTemplets(TEMPLET_LIST &templet_list)
 
 			templet_item->ad_fileName = new char[BUFF_SIZE_255];
 			memset(templet_item->ad_fileName,0,BUFF_SIZE_255);
-			sprintf(templet_item->ad_fileName,"%s",pTaskItem->fileName);
-
+            //sprintf(templet_item->ad_fileName,"%s",pTaskItem->fileName);
+            sprintf(templet_item->ad_fileName,"%s",pTaskItem->orig_fileName);
 
 			templet_item->dstVideoWidth = new char[BUFF_SIZE_255];
 			memset(templet_item->dstVideoWidth,0,BUFF_SIZE_255);

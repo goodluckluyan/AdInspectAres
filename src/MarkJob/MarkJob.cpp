@@ -2,6 +2,7 @@
 #include <syscall.h>
 #include <type.h>
 #include "MarkJob.h"
+#include "MarkJob_types.h"
 #include "utility/FileManager_linux.h"
 #include "log/MyLogger.h"
 
@@ -123,6 +124,25 @@ int MarkJob::CreateMarkJob(MARK_JOB_ITEM *pmarkjob,pfunc_callback_mark pmarkcall
 		g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
 		return ret;
 	}
+
+
+	int frames = 0;
+	int seconds = 0;
+	int width = 0;
+	int height = 0;
+	int framerate = 0;
+
+	GetVideoInfo(pmarkjob->videopath,frames,seconds,width,height,framerate);
+	if(pmarkjob->decode_start_pos>=seconds)
+	{
+		memset(buff_temp,0,sizeof(buff_temp));
+		sprintf(buff_temp,"create markjob is failed,start pos is out range,error code:%d\n",MARK_JOB_CREATEJOB_ERROR_STARTPOS_OUTRANGE);
+		g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+		printf("%s\n",buff_temp);
+		return MARK_JOB_CREATEJOB_ERROR_STARTPOS_OUTRANGE;
+	}
+
+
 
 	pmarkjob->max_frame_count = m_markjob.max_frame_count;
 
@@ -687,7 +707,159 @@ int MarkJob::markjob_procedure()
 
 	return ret;
 }
+int MarkJob::GetVideoInfo(const char *ppath_video,
+						int &frames,
+						int &seconds,
+						int &width,
+						int &height,
+						int &framerate)
+{
+	int ret = MARK_JOB_SUCCESS;
+	int ret_ffmpeg = 0;
+	char buff_temp[1024] = {'\0'};
+    struct AVFormatContext *pInputFormatContext = NULL;
+    struct AVCodecContext *pInputCodecContext = NULL;
+	struct AVStream *pvideostream = NULL;
 
+    av_register_all();
+
+    pInputFormatContext = avformat_alloc_context();
+    if(NULL == pInputFormatContext)
+    {
+		memset(buff_temp,0,sizeof(buff_temp));
+		sprintf(buff_temp,"markjob alloc memory for avformat context failed\n");
+		g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+
+ 		printf("%s\n",buff_temp);
+		return -1;
+	}
+
+    // 打开视频文件
+	ret_ffmpeg = avformat_open_input(&pInputFormatContext, ppath_video, NULL, NULL);
+    if(ret_ffmpeg)
+    {
+		memset(buff_temp,0,sizeof(buff_temp));
+		sprintf(buff_temp,"open file failed,file:%s,ret_ffmpeg:%d\n",ppath_video,ret_ffmpeg);
+		g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+
+ 		printf("%s\n",buff_temp);
+		return -1;
+	}
+
+#if 1
+	/// av文件信息
+	memset(buff_temp,0,sizeof(buff_temp));
+	sprintf(buff_temp,"avformat context,duration:%d,nb_streams:%d,bitrate:%d,filename:%s\n",
+		pInputFormatContext->duration/1000000,
+		pInputFormatContext->nb_streams,
+		pInputFormatContext->bit_rate/1000,
+		pInputFormatContext->filename
+		);
+	g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+
+
+	//get_metadata(pffmpeg_decoder->pInputFormatContext);
+
+	printf("%s\n",buff_temp);
+#endif
+
+
+    // 取出文件流信息 填充AVFormatContext中的音视频流结构
+	ret_ffmpeg = avformat_find_stream_info(pInputFormatContext,NULL);
+
+    if(ret_ffmpeg<0)
+	{
+		memset(buff_temp,0,sizeof(buff_temp));
+		sprintf(buff_temp,"markjob can't find suitable codec parameters,file:%s,ret_ffmpeg:%d\n",ppath_video,ret_ffmpeg);
+		g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+
+ 		printf("%s\n",buff_temp);
+		return -1;
+	}
+
+    //print media info
+    av_dump_format(pInputFormatContext, 0, ppath_video, false);
+
+    //仅仅处理视频流
+    //只简单处理我们发现的第一个视频流
+    //  寻找第一个视频流
+    int videoIndex = -1;
+    for(int i=0; i<pInputFormatContext->nb_streams; i++)
+    {
+        if(pInputFormatContext->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+        {
+            videoIndex = i;
+            break;
+        }
+    }
+
+
+    if(-1 == videoIndex)
+    {
+		memset(buff_temp,0,sizeof(buff_temp));
+		sprintf(buff_temp,"markjob can't find video stream,file:%s\n",ppath_video);
+		g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+
+ 		printf("%s\n",buff_temp);
+		return -1;
+    }
+
+    // 得到视频流编码上下文的指针
+	pvideostream = pInputFormatContext->streams[videoIndex];
+
+	frames = pvideostream->nb_frames;
+	seconds = pvideostream->duration / pvideostream->time_base.den;
+
+	memset(buff_temp,0,sizeof(buff_temp));
+	sprintf(buff_temp,"avstream,stream index:%d,time_base.num:%d,time_base.den:%d,start_time:%d,duration:%d,nb_frames:%d\n"
+					"sample_aspect_ratio.num:%d,sample_aspect_ratio.den:%d,avg_frame_rate.num:%d,avg_frame_rate.den:%d\n"
+					"r_frame_rate.num:%d,r_frame_rate.den:%d,display_aspect_ratio.num:%d,display_aspect_ratio.den:%d\n",
+					pvideostream->index,
+					pvideostream->time_base.num,
+					pvideostream->time_base.den,
+					pvideostream->start_time,
+					pvideostream->duration,
+					pvideostream->nb_frames,
+					pvideostream->sample_aspect_ratio.num,
+					pvideostream->sample_aspect_ratio.den,
+					pvideostream->avg_frame_rate.num,
+					pvideostream->avg_frame_rate.den,
+					pvideostream->r_frame_rate.num,
+					pvideostream->r_frame_rate.den,
+					pvideostream->display_aspect_ratio.num,
+					pvideostream->display_aspect_ratio.den);
+	g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+
+	printf("%s\n",buff_temp);
+
+    pInputCodecContext = pInputFormatContext->streams[videoIndex]->codec;
+
+	width = pInputCodecContext->width;
+    height = pInputCodecContext->height;
+
+	framerate = pInputCodecContext->framerate.num;
+
+	memset(buff_temp,0,sizeof(buff_temp));
+	sprintf(buff_temp,"codec context,video index:%d,width:%d,height:%d,time_base.num:%d,time_base.den:%d,framerate.num:%d,framerate.den:%d,pix_fmt:%d,frame_rate:%d\n",
+					videoIndex,
+					pInputCodecContext->width,
+					pInputCodecContext->height,
+					pInputCodecContext->time_base.num,
+					pInputCodecContext->time_base.den,
+					pInputCodecContext->framerate.num,
+					pInputCodecContext->framerate.den,
+					pInputCodecContext->pix_fmt,
+					framerate);
+	g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+
+	printf("%s\n",buff_temp);
+
+
+    avformat_close_input(&pInputFormatContext);
+    avformat_free_context(pInputFormatContext);
+
+	return ret;
+}
 int MarkJob::get_metadata(const AVFormatContext *pformat_ctx)
 {
 	int ret = MARK_JOB_SUCCESS;

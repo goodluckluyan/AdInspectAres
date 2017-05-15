@@ -275,6 +275,7 @@ void CDownLoadMgr::ProcessDownTask()
                         strStart.c_str() ,strEnd.c_str(),task.savepath.c_str(),filepath.c_str());
                 break;
             }
+             sleep(1);
         }
 
         if(i==3)
@@ -368,6 +369,7 @@ void CDownLoadMgr::ProcessDownTask()
                            strStart.c_str() ,strEnd.c_str(),task.savepath.c_str(),filepath.c_str());
                     break;
                 }
+                sleep(1);
             }
 
             if(i==3)
@@ -445,6 +447,10 @@ bool CDownLoadMgr::AddDayTask(struct tm &day)
         item.start = iZeroTime;
         item.duration = m_TimeStep;
         item.savepath = m_savepath;
+        if(item.start+item.duration>endsec)
+        {
+            break;
+        }
         AddDownTask(item);
         m_lastsec = item.start+item.duration-1;
     }
@@ -667,7 +673,7 @@ bool CDownLoadMgr::ParseDownLoadXml(std::string &retXml,long long &downloadid,st
         DOMDocument* ptrDoc = ptrParser->getDocument();
 
         // 读取downloadID节点
-        DOMNodeList *ptrNodeList = ptrDoc->getElementsByTagName(C2X("downloadID"));
+        DOMNodeList *ptrNodeList = ptrDoc->getElementsByTagName(C2X("id"));
         if(ptrNodeList == NULL)
         {
 //            LOGFAT(ERROR_PARSE_MONITORSTATE_XML,
@@ -738,7 +744,7 @@ bool CDownLoadMgr::QueryISDownDone_DB(long long &downloadid)
     // 读取NVRControl数据库的downLoad表
     char sql[256]={'\0'};
     snprintf(sql,sizeof(sql),
-             "select HallNo,IPCposotion,startTime,ipcIP from downLoad where DownLoadID=%lld",downloadid);
+             "select HallNo,IPCposotion,startTime,ipcIP from downLoad where id=%lld",downloadid);
 
     int nResult;
     CppMySQLQuery query = m_DownLoad_DB.querySQL(sql,nResult);

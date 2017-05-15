@@ -48,6 +48,7 @@ int FrameBufferLoop::InitFrameBuffer(int buffercount)
 
 	if( m_control_type != BUFFER_CONTROL_IDLE )
 	{
+		pthread_mutex_unlock(&m_mutex_control);
 		return FRAME_BUFFER_INIT_ERROR_NOT_IN_IDLE;
 	}
 
@@ -59,6 +60,7 @@ int FrameBufferLoop::InitFrameBuffer(int buffercount)
 	if(framecount == m_framelist.size())
 	{
 		ZeroSpaceItems(&m_framelist);
+		pthread_mutex_unlock(&m_mutex_control);
 		return ret;
 	}
 	else if(framecount > m_framelist.size())
@@ -94,6 +96,7 @@ int FrameBufferLoop::DestroyFrameBuffer()
 
 	if( m_control_type != BUFFER_CONTROL_IDLE )
 	{
+		pthread_mutex_unlock(&m_mutex_control);
 		return FRAME_BUFFER_DESTROY_ERROR_NOT_IN_IDLE;
 	}
 
@@ -110,6 +113,7 @@ int FrameBufferLoop::ResetFrameBuffer()
 
 	if( m_control_type != BUFFER_CONTROL_IDLE )
 	{
+		pthread_mutex_unlock(&m_mutex_control);
 		return FRAME_BUFFER_DESTROY_ERROR_NOT_IN_IDLE;
 	}
 
@@ -128,6 +132,7 @@ bool FrameBufferLoop::IsIdle()
 
 	if( BUFFER_CONTROL_IDLE == m_control_type)
 	{
+		pthread_mutex_unlock(&m_mutex_control);
 		bret =  true;
 	}
 
@@ -143,6 +148,7 @@ int FrameBufferLoop::SetContol(BUFFER_CONTROL_TYPE controltype, bool isalwaysok)
 	if(isalwaysok)
 	{
 		m_control_type = controltype;
+		pthread_mutex_unlock(&m_mutex_control);
 		return ret;
 	}
 
@@ -154,6 +160,7 @@ int FrameBufferLoop::SetContol(BUFFER_CONTROL_TYPE controltype, bool isalwaysok)
 	{
 		if(m_control_type != BUFFER_CONTROL_IDLE)
 		{
+			pthread_mutex_unlock(&m_mutex_control);
 			return  FRAME_BUFFER_SETCONTROL_ERROR_NOT_IN_IDLE;
 		}
 		else
@@ -251,6 +258,7 @@ int FrameBufferLoop::ReadFrameData(AV_FRAME_INFO *pframeitem)
 
 	if(m_counter_frame<=0)
 	{
+		pthread_mutex_unlock(&m_mutex_control);
 		return FRAME_BUFFER_READ_ERROR_NOFRAME_IN_BUFFER;
 	}
 
@@ -308,12 +316,14 @@ int FrameBufferLoop::ReadFrameData(int index,AV_FRAME_INFO **pframeitem)
 
 	if(m_counter_frame<=0)
 	{
+		pthread_mutex_unlock(&m_mutex_control);
 		return FRAME_BUFFER_READ_ERROR_NOFRAME_IN_BUFFER;
 	}
 
 	if( (index<0) ||
 		(index>=m_counter_frame))
 	{
+		pthread_mutex_unlock(&m_mutex_control);
 		return FRAME_BUFFER_READ_ERROR_INDEX_INVALID;
 	}
 

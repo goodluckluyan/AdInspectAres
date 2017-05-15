@@ -149,6 +149,7 @@ typedef struct _FFMPEG_DECODER
 #define MARK_JOB_PAUSE_ERROR_NOTIN_RUNNING_PAUSING		5		///暂停失败，没有任务运行或暂停，需要有任务运行
 #define MARK_JOB_INITIALIZE_ERROR_LOAD_FEATURE			6		///初始化失败，加载龙标特征标志
 #define MARK_JOB_CREATEJOB_ERROR_ASPECT_IS_OVERFLOW		7		///创建查找任务失败，分辨率超出范围
+#define MARK_JOB_CREATEJOB_ERROR_STARTPOS_OUTRANGE		8		///创建查找任务失败，开始位置超出范围
 ////error code end
 
 class MarkJob
@@ -180,6 +181,14 @@ public:
 
 	/// 比对龙标处理线程
 	int markjob_procedure();
+
+	/// 获取video的信息
+	int GetVideoInfo(const char *ppath_video,
+						int &frames,
+						int &seconds,
+						int &width,
+						int &height,
+						int &framerate);
 	
 
 private:

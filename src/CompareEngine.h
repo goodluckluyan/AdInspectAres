@@ -6,6 +6,7 @@
 #include <map>
 #include "opencv2/core.hpp"
 #include "opencv2/imgproc.hpp"
+#include "opencv2/highgui.hpp"
 #include "TempletManager/TempletModule.h"
 #include "MarkJob/FrameBufferLoop.h"
 #include "para/C_Para.h"
@@ -46,7 +47,7 @@ typedef struct _TempletMatch
     std::string vediofilename;      //视频文件名称
 }TempletMatch;
 
-enum Range{ALL,SUBAREA};
+enum Range{NOTHING,MATCH,ALL,SUBAREA};
 typedef struct _SearchArea
 {
    _SearchArea()
@@ -56,6 +57,8 @@ typedef struct _SearchArea
        bufsize = 0;
        featrueNum = 0;
        ptrfeature = NULL;
+       width_hr = 0;
+       height_hr = 0;
 
    }
 
@@ -71,6 +74,8 @@ typedef struct _SearchArea
    unsigned char *ptrfeature;
    unsigned int featrueNum;
    unsigned int bufsize;
+   unsigned int width_hr;
+   unsigned int height_hr;
    std::list<_TEMPLET_ITEM*> m_lsSearchTempletPtr;
 }SearchArea;
 
@@ -101,6 +106,36 @@ typedef struct _Location
 
 }Location;
 
+
+// shared_equals_raw
+template <typename T> struct shared_equals_raw
+{
+    shared_equals_raw(T* raw)
+        :_raw(raw)
+    {}
+    bool operator()(_TEMPLET_ITEM* ptr) const
+    {
+      return (ptr==_raw);
+    }
+private:
+    T* const _raw;
+};
+
+// shared_equals_raw
+struct match_equals
+{
+    match_equals(MatchItem& raw)
+        :_raw(raw)
+    {}
+    bool operator()(MatchItem & mi) const
+    {
+      return (mi.nInspectIndex==_raw.nInspectIndex&&
+              mi.nInspectTimeStamp==_raw.nInspectTimeStamp&&
+              mi.nTempletIndex==_raw.nTempletIndex);
+    }
+private:
+    MatchItem const _raw;
+};
 
 
 class CompareEngine :public OS_Thread
@@ -141,6 +176,9 @@ private:
     // 结果入库
     bool InsertResult_DB();
 
+    // 保存匹配记录
+    bool InsertMatch_DB();
+
 private:
     // 厅号
     int m_hallid;
@@ -169,6 +207,7 @@ private:
 
     // 数据库操作
     CppMySQL3DB m_CompareResultDB;
+    CppMySQL3DB m_MatchDB;
 
     // 录播比对区域
     C_Para::Rect m_rect;
@@ -213,36 +252,47 @@ public:
         m_pBGR24 =(char *) malloc(width*height*3);
         cv::Mat dst(height,width,CV_8UC3,m_pBGR24);
         cv::Mat src(height + height/2,width,CV_8UC1,pYUV);
-        cvtColor(src,dst,::CV_YUV2BGR_YV12);
+        cvtColor(src,dst,::CV_YUV2BGR_I420);//::CV_YUV2BGR_YV12
+        m_pInspectImg = new IplImage(dst);
         m_lsize = size;
         m_nWidth = width;
         m_nHeight = height;
+        m_pRGB24_HR = NULL;
     }
 
     ~ImgBuf()
     {
 
-        if(m_pBGR24!=NULL)
+        if(m_pInspectImg !=NULL)
+        {
+            delete m_pInspectImg;
+            m_pInspectImg = NULL;
+        }
+
+        if(m_pBGR24 != NULL)
         {
            free(m_pBGR24);
            m_pBGR24 = NULL;
         }
 
+        if(m_pRGB24_HR != NULL)
+        {
+            free(m_pRGB24_HR);
+            m_pRGB24_HR = NULL;
+        }
 
+
+    }
+
+    void SaveJpeg(std::string fullpath)
+    {
+        ::cvSaveImage(fullpath.c_str(),m_pInspectImg);
     }
 
     void Savebmp(std::string fullpath)
     {
 
         int lineBytes = m_nWidth*3;
-//        char fileName[1024]={0};
-//        char * bmpSavePath = "./pic/%s.bmp";
-
-//        if(access("./pic",0)==-1)
-//        {
-//           mkdir("./pic",0755);
-//        }
-//        sprintf(fileName,bmpSavePath ,name.c_str());
         FILE *pDestFile = fopen(fullpath.c_str(), "wb");
         if(NULL == pDestFile)
         {
@@ -279,11 +329,32 @@ public:
 
         fclose(pDestFile);
     }
+
+    char * SetHRRect(int left,int top,int right,int bottom)
+    {
+        int width = right - left + 1;
+        int height = bottom - top +1;
+        m_pRGB24_HR = (char *) malloc(width*height*3);
+        m_lsize_hr = width*height*3;
+        int linesize = width*3;
+        int rawlinesize = m_nWidth*3;
+        int rawstart = top-2*rawlinesize+left*3;
+
+        for(int i = 0 ;i < height ;i++)
+        {
+            memcpy(m_pRGB24_HR+linesize*i,m_pBGR24+linesize*i+rawstart,width*3);
+        }
+        return m_pRGB24_HR;
+
+    }
 public:
 
     char * m_pBGR24;
+    char * m_pRGB24_HR;// 热点区域
+    IplImage *m_pInspectImg;
 
     unsigned int m_lsize;
+    unsigned int m_lsize_hr;
     unsigned int m_nWidth;
     unsigned int m_nHeight;
 };

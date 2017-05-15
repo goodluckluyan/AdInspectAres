@@ -428,8 +428,10 @@ int CMainProcess::TaskDispatch()
         {
             lsVideoFile &lsVF = it->second;
             int cnt = 0;
+
+            //标记dirty
             lsVideoFile::reverse_iterator rit = lsVF.rbegin();
-            while(rit != lsVF.rend())
+            for(;rit != lsVF.rend();rit++)
             {
                 // 不对最后一个完成的文件进行处理，理由是如果宕机重启后需要重新解码因为新的文件
                 // 如果有龙标最后一个文件可能有广告
@@ -442,14 +444,20 @@ int CMainProcess::TaskDispatch()
                         //  设置文件为非活跃状态，即已经不需要再进行龙标检测和对比了
                         m_DownloadMgr.UpdateDownFileStatus_DB(ptrVF->UUID,INACTIVITY);
                         ptrVF->Status = DIRTY;
-                        rit++;
-                        lsVF.remove(ptrVF);
-                        continue;
                     }
                 }
-                rit++;
             }
 
+             // 删除标记
+             lsVideoFile::iterator dit = lsVF.begin();
+             for(;dit != lsVF.end();dit++)
+             {
+                 ptrVideoFile &ptrVF = *dit;
+                 if(DIRTY == ptrVF->Status)
+                 {
+                     lsVF.erase(dit++);
+                 }
+             }
         }
     }
 

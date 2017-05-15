@@ -3,6 +3,7 @@
 #include "CompareEngine.h"
 #include "utility/FileEx.h"
 #include "utility/C_Time.h"
+#include "utility/wordcodec.h"
 
 extern bool g_bAresQuit;
 extern MyLogger g_compare_logwrite;
@@ -72,6 +73,14 @@ int CompareEngine::Init(std::string &dbip,std::string &dbuser,std::string &passw
             printf(0,"mysql open failed!\n");
             return -1;
     }
+
+    if(m_MatchDB.open(dbip.c_str(),dbuser.c_str(),
+            passwd.c_str(),"AdInspect",port) == -1)
+    {
+            printf(0,"mysql open failed!\n");
+            return -1;
+    }
+
     return 0;
 }
 
@@ -118,11 +127,13 @@ int CompareEngine::CreateSearchArea(FrameBufferLoop *fbl)
     loginfo("Inspect frame count:%d",num);
     m_loopbuffer = fbl;
     fbl->SetContol(BUFFER_CONTROL_READ);
-    for(int i = 0 ;i < num; i++)
+    for(int i = 1 ;i <= num; i++)
     {
         ptrSearchArea sa(new SearchArea);
-        fbl->ReadFrameData(i,&sa->ptrAVFrame);
-        m_mapInspectSearchArea[i] = sa;
+        if(fbl->ReadFrameData(i-1,&sa->ptrAVFrame)==0)
+        {
+            m_mapInspectSearchArea[i] = sa;
+        }
     }
     return 0;
 }
@@ -156,10 +167,14 @@ int CompareEngine::Routine()
     for(int i = 0 ;i < m_rawTemplet.size();i++)
     {
         TEMPLET_ITEM * ptr = m_rawTemplet[i];
-        nPicSum+=ptr->picture_list.size();
+        int framecnt = ptr->picture_list.size();
+        nPicSum += framecnt;
         TempletMatch tm;
         tm.ptrTemplet = ptr;
-        std::sort(ptr->picture_list.begin(),ptr->picture_list.end(),comparepic);
+//      std::sort(ptr->picture_list.begin(),ptr->picture_list.end(),comparepic);
+        std::sort(ptr->picture_list.begin(),ptr->picture_list.begin()+framecnt/2,comparepic);
+        std::sort(ptr->picture_list.begin()+framecnt/2,ptr->picture_list.end(),comparepic);
+
 
         PICTURE_LIST::iterator picit = ptr->picture_list.begin();
         for(;picit != ptr->picture_list.end();picit++)
@@ -181,7 +196,7 @@ int CompareEngine::Routine()
 
         videopath = videopath + "Result/" + tm.ptrTemplet->uuid + "/" + m_curtaskid;
         tm.resultpath = videopath;
-        tm.vediofilename = tm.ptrTemplet->ad_fileName;
+        tm.vediofilename = tm.ptrTemplet->uuid;
         m_mapTempletMatch.insert(std::pair<std::string,TempletMatch>(ptr->uuid,tm));
     }
     loginfo("Templet count:%d ,Templet frame count:%d",m_rawTemplet.size(),nPicSum);
@@ -192,9 +207,9 @@ int CompareEngine::Routine()
     for(;fit != m_mapInspectSearchArea.end();fit++)
     {
         index ++;
-        loginfo("Fist Compare(Inspect frame:%d)",index);
+        loginfo("Fist Compare(Inspect frame:%d/%d)",index,m_mapInspectSearchArea.size());
         ptrSearchArea &ptrSA = fit->second;
-        Image_compare(fit->first,ptrSA,true);
+        Image_compare(fit->first,ptrSA,para->m_IsSpeedPriority);
 
         if(g_bAresQuit)
         {
@@ -221,52 +236,61 @@ int CompareEngine::Routine()
             loginfo("Match success(i:%d ts:%d t:%d w:%f)",mi.nInspectIndex,mi.nInspectTimeStamp,
                     mi.nTempletIndex,mi.fWeight);
 
-            // 匹配成功，对录播图的左右邻居进行标注，以便二次匹配
-            int start = std::max(mi.nInspectIndex-mi.nTempletIndex,0)+1;
-            int end = start+tm.ptrTemplet->picture_quantity;
-            Label_inspect(start,end,tm.ptrTemplet);
+            // 非快速比较不进行二次比较，所有不标注
+            if(!para->m_IsSpeedPriority)
+            {
+                // 匹配成功，对录播图的左右邻居进行标注，以便二次匹配
+                int start = std::max(mi.nInspectIndex-mi.nTempletIndex,0)+1;
+                int end = start+tm.ptrTemplet->picture_quantity;
+                Label_inspect(start,end,tm.ptrTemplet);
+            }
         }
     }
 
 
-
-    // 二次比较
-    index = 0;
-    std::map<int,ptrSearchArea>::iterator sit = m_mapInspectSearchArea.begin();
-    for(;sit != m_mapInspectSearchArea.end();sit++)
+    // 快速比较进行二次按标注比较
+    if(para->m_IsSpeedPriority)
     {
-        index ++;
-        loginfo("Second Compare(Inspect frame:%d)",index);
-         ptrSearchArea &ptrSA = sit->second;
-        Image_compare(sit->first,ptrSA,para->m_IsSpeedPriority);
-
-        if(g_bAresQuit)
+        // 二次比较
+        index = 0;
+        std::map<int,ptrSearchArea>::iterator sit = m_mapInspectSearchArea.begin();
+        for(;sit != m_mapInspectSearchArea.end();sit++)
         {
-            m_ptrTempletMgr->DeleteTemplet_list(&m_rawTemplet);
-            ((FrameBufferLoop*)m_loopbuffer)->SetContol(BUFFER_CONTROL_IDLE);
-            return 0;
+            index ++;
+            loginfo("Second Compare(Inspect frame:%d/%d)",index,m_mapInspectSearchArea.size());
+             ptrSearchArea &ptrSA = sit->second;
+            Image_compare(sit->first,ptrSA,para->m_IsSpeedPriority);
+
+            if(g_bAresQuit)
+            {
+                m_ptrTempletMgr->DeleteTemplet_list(&m_rawTemplet);
+                ((FrameBufferLoop*)m_loopbuffer)->SetContol(BUFFER_CONTROL_IDLE);
+                return 0;
+            }
+        }
+
+        // 输出第二次比对结果
+        std::map<std::string,TempletMatch>::iterator pit = m_mapTempletMatch.begin();
+        for(;pit != m_mapTempletMatch.end();pit++)
+        {
+            TempletMatch&tm = pit->second;
+            loginfo("Ad Templet %s Second Match:",tm.ptrTemplet->ad_fileName);
+            int len = tm.vecMatch.size();
+            for(int i = 0; i < len ;i++)
+            {
+                int nInspectIndex;
+                int nInspectTimeStamp;
+                int nTempletIndex;
+                float fWeight;
+                MatchItem &mi = tm.vecMatch[i];
+                loginfo("Match success(i:%d ts:%d t:%d w:%f)",mi.nInspectIndex,mi.nInspectTimeStamp,
+                        mi.nTempletIndex,mi.fWeight);
+            }
         }
     }
 
-    // 输出第二次比对结果
-    std::map<std::string,TempletMatch>::iterator pit = m_mapTempletMatch.begin();
-    for(;pit != m_mapTempletMatch.end();pit++)
-    {
-        TempletMatch&tm = pit->second;
-        loginfo("Ad Templet %s Second Match:",tm.ptrTemplet->ad_fileName);
-        int len = tm.vecMatch.size();
-        for(int i = 0; i < len ;i++)
-        {
-            int nInspectIndex;
-            int nInspectTimeStamp;
-            int nTempletIndex;
-            float fWeight;
-            MatchItem &mi = tm.vecMatch[i];
-            loginfo("Match success(i:%d ts:%d t:%d w:%f)",mi.nInspectIndex,mi.nInspectTimeStamp,
-                    mi.nTempletIndex,mi.fWeight);
-        }
-    }
-
+    // 匹配结果入库
+    InsertMatch_DB();
 
     // 按模板统计结果并定位录播位置
     SummaryResultsAndLocatorPo();
@@ -276,10 +300,12 @@ int CompareEngine::Routine()
     for(;tit != m_mapTempletMatch.end();tit++)
     {
         TempletMatch&tm = tit->second;
-        SaveInspectImage(tm);
+        if(tm.vecMatch.size()>0 /*&& tm.inspect_ts_start !=0*/)
+        {
+             SaveInspectImage(tm);
+        }
+
     }
-
-
 
     // 回调函数
     if(NULL != m_ptrCompareDoneFun)
@@ -294,8 +320,9 @@ int CompareEngine::Routine()
     m_ptrTempletMgr->DeleteTemplet_list(&m_rawTemplet);
     ((FrameBufferLoop*)m_loopbuffer)->SetContol(BUFFER_CONTROL_IDLE);
 
-    // 释放监播搜索结构
+    // 释放监播搜索和模板结构
     m_mapInspectSearchArea.clear();
+    m_mapTempletMatch.clear();
 
     time_t costtm_e;
     time(&costtm_e);
@@ -323,7 +350,6 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
     }
 
     // 第一次比较,只比较特征点数最多的前两个
-
     if(inspect->area == ALL)
     {
         loginfo("Inspect Image %d:%s",index,"All");
@@ -335,16 +361,38 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
             ImgBuf buf(inspect->ptrAVFrame->data,inspect->ptrAVFrame->length,
                        inspect->ptrAVFrame->width,inspect->ptrAVFrame->height);
 
+            char *ptrbuf = buf.m_pBGR24;
+            unsigned int bufsize = buf.m_lsize;
+            unsigned int width = buf.m_nWidth;
+            unsigned int height = buf.m_nHeight;
+            if(m_rect.width()>0&&m_rect.height()>0)
+            {
+               ptrbuf = buf.SetHRRect(m_rect.left,m_rect.top,m_rect.right,m_rect.bottom);
+               bufsize = buf.m_lsize_hr;
+               width = m_rect.width();
+               height = m_rect.height();
+
+            }
+
+            if(NULL == ptrbuf)
+            {
+                logerror("Inspect transfrom to RGB failed!");
+                return -3;
+            }
+
             int featruenum;
-            m_featrueExtract.ExportFeature((char *)buf.m_pBGR24,buf.m_lsize,buf.m_nWidth,buf.m_nHeight,featruenum);
+            m_featrueExtract.ExportFeature(ptrbuf,bufsize,width,height,featruenum);
             if(featruenum==0)
             {
+                inspect->area = NOTHING;
                 return -2;
             }
 
             inspect->ptrfeature = new unsigned char[featruenum*FEATURE_SIZE];
             inspect->featrueNum = featruenum;
             inspect->bufsize = featruenum*FEATURE_SIZE;
+            inspect->width_hr = width;
+            inspect->height_hr = height;
             m_featrueExtract.GetFeatureBuffer((char*)inspect->ptrfeature,inspect->bufsize);
         }
 
@@ -353,25 +401,53 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
         for(;it != m_mapTempletMatch.end();it++)
         {
             TempletMatch &tm = it->second;
-            PICTURE_LIST::iterator lit = tm.ptrTemplet->picture_list.begin();
-            int comparecnt=0;
+
+            PICTURE_LIST lsCompared;
             if(bSpeedPriority)
             {
-                comparecnt = 2;
+                // 获取前半段和后半段的最大和次大值
+                int comparecnt = 2;
+                PICTURE_LIST::iterator lit = tm.ptrTemplet->picture_list.begin();
+                int nFrameCnt = tm.ptrTemplet->picture_list.size();
+                PICTURE_LIST::iterator olit = tm.ptrTemplet->picture_list.begin()+nFrameCnt/2;
+                for(int i = 0;lit != olit && i<comparecnt ;i++,lit++)
+                {
+                    lsCompared.push_back(*lit);
+                }
+
+                for(int i = 0;olit != tm.ptrTemplet->picture_list.end() && i<comparecnt ;i++,olit++)
+                {
+                    lsCompared.push_back(*olit);
+                }
+
             }
             else
             {
-                comparecnt = tm.ptrTemplet->picture_list.size();
+                PICTURE_LIST::iterator lit = tm.ptrTemplet->picture_list.begin();
+                for(;lit != tm.ptrTemplet->picture_list.end() ;lit++)
+                {
+                    lsCompared.push_back(*lit);
+                }
             }
 
-            for(int i = 0;lit != tm.ptrTemplet->picture_list.end()&& i<comparecnt ;i++,lit++)
+
+            PICTURE_LIST::iterator lit_compared = lsCompared.begin();
+            for(;lit_compared != lsCompared.end() ;lit_compared++)
             {
-                PICTUR_ITEM * ptrPIC = *lit;
+                PICTUR_ITEM * ptrPIC = *lit_compared;
+                float fpretest = static_cast<float>(inspect->featrueNum)/((ptrPIC->quantity+inspect->featrueNum)/2);
+                if(fpretest<m_threshold)
+                {
+                    loginfo("featrue too less not compare. [ %d(%d)-%s:%d(%d)]",index,inspect->featrueNum,
+                            tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,ptrPIC->quantity);
+                    continue;
+                }
+
                 int matchcnt;
                 unsigned int width = (unsigned int)atoi(tm.ptrTemplet->dstVideoWidth);
                 unsigned int height = (unsigned int)atoi(tm.ptrTemplet->dstVideoHeight);
-                unsigned int owidth = (unsigned int)inspect->ptrAVFrame->width;
-                unsigned int oheight = (unsigned int)inspect->ptrAVFrame->height;
+                unsigned int owidth = inspect->width_hr;
+                unsigned int oheight = inspect->height_hr;
                 int fn = (int)inspect->featrueNum;
                 m_featrueExtract.CompareFeature((char *)ptrPIC->addr,
                                                 ptrPIC->length,
@@ -387,7 +463,13 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                                                 );
 
                 float weight = static_cast<float>(matchcnt)/((ptrPIC->quantity+inspect->featrueNum)/2);
-                loginfo("Compare [%s:%d] matchcnt:%d weight:%.2f threshold:%.2f",
+
+                // 广告名有中文会乱码，则转换
+//                CodeConverter conv("gb2312","utf-8");
+//                char buf[256]={'\n'};
+//                conv.convert(tm.ptrTemplet->ad_fileName,strlen(tm.ptrTemplet->ad_fileName),
+//                             buf,256);
+                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
                         tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
                 if(weight > m_threshold)
                 {
@@ -397,11 +479,22 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                     mi.nInspectTimeStamp = inspect->ptrAVFrame->framenum;
                     mi.nTempletIndex = ptrPIC->picture_order;
                     mi.fWeight = weight;
-                    tm.vecMatch.push_back(mi);
+                    std::vector<MatchItem>::iterator mfit = std::find_if(tm.vecMatch.begin(),
+                                                                         tm.vecMatch.end(),                                                                         match_equals(mi));
+                    if(mfit == tm.vecMatch.end())
+                    {
+                         tm.vecMatch.push_back(mi);
+                    }
+
                 }
+
             }
 
         }//for
+
+        // 比对过的标记为NOTHING
+        inspect->area = NOTHING;
+
     }//if(inspect->area == ALL)
     else if(inspect->area == SUBAREA)
     {
@@ -412,11 +505,25 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
         for(;it != inspect->m_lsSearchTempletPtr.end();it++)
         {
             _TEMPLET_ITEM* ptrTemplet = *it;
+
+//            CodeConverter conv("gb2312","utf-8");
+//            char buf[256]={'\n'};
+//            conv.convert(ptrTemplet->ad_fileName,strlen(ptrTemplet->ad_fileName),
+//                         buf,256);
+
             loginfo("......Compare inspect image %d - %s",index,ptrTemplet->ad_fileName);
             PICTURE_LIST::iterator lit = ptrTemplet->picture_list.begin();
             for(int i = 0;lit != ptrTemplet->picture_list.end()&& i<2 ;i++,lit++)
             {
                 PICTUR_ITEM * ptrPIC = *lit;
+                float fpretest = static_cast<float>(inspect->featrueNum)/((ptrPIC->quantity+inspect->featrueNum)/2);
+                if(fpretest<m_threshold)
+                {
+                    loginfo("featrue too less not compare. [ %d(%d)-%s:%d(%d)]",index,inspect->featrueNum,
+                            ptrTemplet->ad_fileName,ptrPIC->picture_order,ptrPIC->quantity);
+                    continue;
+                }
+
                 int matchcnt;
                 unsigned int width =  (unsigned int)atoi(ptrTemplet->dstVideoWidth);
                 unsigned int height = (unsigned int)atoi(ptrTemplet->dstVideoHeight);
@@ -436,8 +543,8 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                                                 matchcnt
                                                 );
 
-                float weight = matchcnt/((ptrPIC->quantity+inspect->featrueNum)/2);
-                loginfo("Compare [%s:%d] matchcnt:%d weight:%.2f threshold:%.2f",
+                float weight = static_cast<float>(matchcnt)/((ptrPIC->quantity+inspect->featrueNum)/2);
+                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
                         ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
 
                 if(weight > m_threshold)
@@ -463,6 +570,7 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
     return 0;
 }
 
+
 /*******************************************************************************
 * 函数名称：	Label_inspect
 * 功能描述：	对录播图的邻居进行标注
@@ -481,9 +589,15 @@ int CompareEngine::Label_inspect(int start,int end,_TEMPLET_ITEM* lable)
         std::map<int,ptrSearchArea>::iterator fit =  m_mapInspectSearchArea.find(i);
         if(fit!= m_mapInspectSearchArea.end())
         {
+
             ptrSearchArea &ptr = fit->second;
-            ptr->m_lsSearchTempletPtr.push_back(lable);
-            ptr->area = SUBAREA;
+            std::list<_TEMPLET_ITEM*>::iterator fit = std::find_if(ptr->m_lsSearchTempletPtr.begin(),ptr->m_lsSearchTempletPtr.end(),
+                         shared_equals_raw<_TEMPLET_ITEM>(lable));
+            if(fit == ptr->m_lsSearchTempletPtr.end())
+            {
+                ptr->m_lsSearchTempletPtr.push_back(lable);
+                ptr->area = SUBAREA;
+            }
         }
     }
 }
@@ -621,7 +735,7 @@ int CompareEngine::SummaryResultsAndLocatorPo()
         std::cout<< "luzhiPo:"<<loc.spaces[g].luzhiPo<<"    "<< "mobanPo:"<< loc.spaces[g].mobanPo<<"  "<<"ratio:"<<loc.spaces[g].ratio<<std::endl;
         //std::cout << "loc.spaces[g].ratio"<<loc.spaces[g].ratio<<std::endl;
         tm.inspect_index_start = loc.spaces[g].luzhiPo - loc.spaces[g].mobanPo + 1;
-        tm.inspect_ts_start = loc.spaces[g].luzhi_ts;
+        tm.inspect_ts_start = loc.spaces[g].luzhi_ts - loc.spaces[g].mobanPo + 1;
         if(tm.inspect_index_start< 0)
         {
             tm.inspect_index_start = -1*tm.inspect_index_start;
@@ -630,16 +744,21 @@ int CompareEngine::SummaryResultsAndLocatorPo()
         tm.inspect_ts_end = tm.inspect_ts_start + tm.ptrTemplet->picture_quantity - 1;
     }
 
+
     // 确定播放位序
     std::map<std::string,TempletMatch>::iterator tit = m_mapTempletMatch.begin();
     for(; tit != m_mapTempletMatch.end();tit++)
     {
         TempletMatch &tm = tit->second;
+        if(tm.inspect_ts_start == 0)
+        {
+            continue;
+        }
         std::map<std::string,TempletMatch>::iterator sit = m_mapTempletMatch.begin();
         for(; sit != m_mapTempletMatch.end();sit++)
         {
             TempletMatch &stm = it->second;
-            if( tm.inspect_ts_start >= stm.inspect_ts_start )
+            if(stm.inspect_ts_start>0 && tm.inspect_ts_start >= stm.inspect_ts_start )
             {
                 tm.showorder++;
             }
@@ -648,6 +767,68 @@ int CompareEngine::SummaryResultsAndLocatorPo()
 
 
     return nRet;
+}
+
+/*******************************************************************************
+* 函数名称：	InsertMatch_DB
+* 功能描述：	保存匹配记录
+* 输入参数：
+* 输出参数：
+* 返 回 值：	true - 成功，false - 失败
+* 其它说明：
+* 修改日期		修改人	      修改内容
+* ------------------------------------------------------------------------------
+* 2017-04-29 	卢岩	      创建
+*******************************************************************************/
+bool CompareEngine::InsertMatch_DB()
+{
+
+    C_Time curtm;
+    std::string strcur;
+    curtm.setCurTime();
+    curtm.getTimeStr(strcur);
+
+    std::map<std::string,TempletMatch>::iterator it = m_mapTempletMatch.begin();
+    for(;it != m_mapTempletMatch.end();it++)
+    {
+        char sql[1024]={'\0'};
+        TempletMatch&tm = it->second;
+        if(tm.vecMatch.size()==0)
+        {
+            continue;
+        }
+
+        int num = tm.vecMatch.size();
+        for(int i = 0;i < num ;i++)
+        {
+            MatchItem &mi = tm.vecMatch[i];
+
+            C_Time tstm;
+            std::string strtm;
+            tstm.setTimeInt(mi.nInspectTimeStamp);
+            tstm.getTimeStr(strtm);
+
+             snprintf(sql,1024,"insert into matchitem"
+                               "(task_id,templet_uuid,inspect_order,inspect_ts,"
+                               "inspect_time,templet_order,templet_name,weight,time) "
+                               "values(\"%s\",\"%s\",%d,%u,"
+                               "\"%s\",%d,\"%s\",%.3f,\'%s\')",
+                                m_curtaskid.c_str(),tm.ptrTemplet->uuid,mi.nInspectIndex,mi.nInspectTimeStamp,
+                      strtm.c_str(),mi.nTempletIndex,tm.ptrTemplet->ad_fileName,mi.fWeight,strcur.c_str());
+             int nResult = m_MatchDB.execSQL(sql);
+             if(nResult != -1)
+             {
+                 loginfo("Save match result successful!(%s)",sql);
+
+             }
+             else
+             {
+                 loginfo("Save match result failed!(%s)",sql);
+
+             }
+        }
+    }
+    return true;
 }
 
 /*******************************************************************************
@@ -676,7 +857,7 @@ bool CompareEngine::InsertResult_DB()
         C_Para *para = C_Para::GetInstance();
         char sql[1024]={'\0'};
         char buf[128]={'\0'};
-        snprintf(buf,128,"%d-%s",m_hallid,tm.ptrTemplet->uuid);
+        snprintf(buf,128,"%s-%s",m_curtaskid.c_str(),tm.ptrTemplet->uuid);
         std::string  id = buf;
 
         C_Time curtm;
@@ -708,7 +889,7 @@ bool CompareEngine::InsertResult_DB()
 
         std::string vediofullpath,fixbasepath;
         fixbasepath = videopath.substr(vediofullpath.find(head)+head.size()+1);
-        vediofullpath =fixbasepath + tm.vediofilename;
+        vediofullpath =fixbasepath + tm.vediofilename + ".mp4";
         std::string compareimgpath = fixbasepath;
 
         C_Time starttm,endtm;
@@ -724,7 +905,7 @@ bool CompareEngine::InsertResult_DB()
                            "advert_previous,cinema_city,cinema_name,videopath,compare_imgpath,hall_no,"
                            "inspect_end_time,inspect_order,inspec_start_time,monitor_status,imglen) "
                            "values(\"%s\",\"%s\",\"%s\",%u,\"%s\","
-                           "\"%s\",\"%s\",\"%s\",\"%s\",%d,"
+                           "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%d,"
                            "\"%s\",%d,\"%s\",%d,%d)",
                   id.c_str(),tm.ptrTemplet->uuid,strCurtime.c_str(),msec,"",
                   "","北京","大红门",vediofullpath.c_str(),compareimgpath.c_str(),m_hallid,
@@ -734,19 +915,16 @@ bool CompareEngine::InsertResult_DB()
          if(nResult != -1)
          {
              loginfo("Save compare result successful!(%s)",sql);
-             return true;
+
          }
          else
          {
              loginfo("Save compare result failed!(%s)",sql);
-             return false;
+
          }
 
     }
-
-
-
-
+    return true;
 }
 
 /*******************************************************************************
@@ -762,8 +940,10 @@ bool CompareEngine::InsertResult_DB()
 *******************************************************************************/
 bool CompareEngine::SaveInspectImage(TempletMatch &tm)
 {
+    int index = 0;
     for(int i = tm.inspect_index_start ;i<=tm.inspect_index_end;i++)
     {
+        index++;
         std::map<int,ptrSearchArea>::iterator fit =  m_mapInspectSearchArea.find(i);
         if(fit!= m_mapInspectSearchArea.end())
         {
@@ -776,16 +956,17 @@ bool CompareEngine::SaveInspectImage(TempletMatch &tm)
             // 图片路径和文件命名方式：结果目录+模板uuid(广告表id)+taskid(hallid_cpos_start_duration)
             // +name(hallid+广告名称+开始时间+序号)
             char name[256]={'\0'};
-            snprintf(name,256,"%d-%d.bmp",tm.inspect_ts_start,i);
+            snprintf(name,256,"%s-%d.jpg",tm.ptrTemplet->uuid,index);
 
             std::string savepath = tm.resultpath;
             if(savepath.rfind("/")!=savepath.size()-1)
             {
                 savepath+="/";
             }
+
             std::string SavePath = savepath + std::string(name);
             CFileEx::CreateFolderForFile(SavePath.c_str());
-            Img.Savebmp(SavePath);
+            Img.SaveJpeg(SavePath);
 
         }
     }
