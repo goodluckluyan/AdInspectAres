@@ -11,18 +11,17 @@ extern MyLogger g_compare_logwrite;
 #define logerror(strlog,...)   g_compare_logwrite.PrintLog(MyLogger::ERROR,strlog,##__VA_ARGS__)
 #define logdebug(strlog,...)   g_compare_logwrite.PrintLog(MyLogger::DEBUG,strlog,##__VA_ARGS__)
 #define logfatal(strlog,...)   g_compare_logwrite.PrintLog(MyLogger::FATAL,strlog,##__VA_ARGS__)
-bool comparepic(PICTUR_ITEM* first ,PICTUR_ITEM* second)
-{
-    return first->quantity>second->quantity;
-}
 
 
-CompareEngine::CompareEngine(int hallid,TempletManager *ptrTempletMgr)
+CompareEngine::CompareEngine(int hallid,TempletManager *ptrTempletMgr,
+                             std::string city,std::string cinema_name)
 {
     m_hallid = hallid;
     m_ptrTempletMgr = ptrTempletMgr;
     m_loopbuffer = NULL;
     m_threshold = 0.1;
+    m_City = city;
+    m_CinemaName = cinema_name;
 }
 
 CompareEngine::~CompareEngine()
@@ -67,19 +66,12 @@ int CompareEngine::Init(std::string &dbip,std::string &dbuser,std::string &passw
 
     m_threshold = C_Para::GetInstance()->m_WeightThreshold;
     m_rect = rect;
-    if(m_CompareResultDB.open(dbip.c_str(),dbuser.c_str(),
-            passwd.c_str(),"oristarmr",port) == -1)
-    {
-            printf(0,"mysql open failed!\n");
-            return -1;
-    }
+    m_strDB_IP=dbip;
+    m_strDB_User=dbuser;
+    m_strPasswd=passwd;
+    m_strDB_name=dbname;
+    m_nPort = port;
 
-    if(m_MatchDB.open(dbip.c_str(),dbuser.c_str(),
-            passwd.c_str(),"AdInspect",port) == -1)
-    {
-            printf(0,"mysql open failed!\n");
-            return -1;
-    }
 
     return 0;
 }
@@ -172,8 +164,8 @@ int CompareEngine::Routine()
         TempletMatch tm;
         tm.ptrTemplet = ptr;
 //      std::sort(ptr->picture_list.begin(),ptr->picture_list.end(),comparepic);
-        std::sort(ptr->picture_list.begin(),ptr->picture_list.begin()+framecnt/2,comparepic);
-        std::sort(ptr->picture_list.begin()+framecnt/2,ptr->picture_list.end(),comparepic);
+        std::sort(ptr->picture_list.begin(),ptr->picture_list.begin()+framecnt/2,ComparePic());
+        std::sort(ptr->picture_list.begin()+framecnt/2,ptr->picture_list.end(),ComparePic());
 
 
         PICTURE_LIST::iterator picit = ptr->picture_list.begin();
@@ -259,7 +251,7 @@ int CompareEngine::Routine()
             index ++;
             loginfo("Second Compare(Inspect frame:%d/%d)",index,m_mapInspectSearchArea.size());
              ptrSearchArea &ptrSA = sit->second;
-            Image_compare(sit->first,ptrSA,para->m_IsSpeedPriority);
+            Image_compare(sit->first,ptrSA);
 
             if(g_bAresQuit)
             {
@@ -307,14 +299,14 @@ int CompareEngine::Routine()
 
     }
 
+    // 结果保存到数据库
+    InsertResult_DB();
+
     // 回调函数
     if(NULL != m_ptrCompareDoneFun)
     {
         m_ptrCompareDoneFun(m_ptrUser,m_curtaskid,m_mapTempletMatch);
     }
-
-    // 结果保存到数据库
-    InsertResult_DB();
 
     // 释放模板空间
     m_ptrTempletMgr->DeleteTemplet_list(&m_rawTemplet);
@@ -493,7 +485,7 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
         }//for
 
         // 比对过的标记为NOTHING
-        inspect->area = NOTHING;
+        // inspect->area = NOTHING;
 
     }//if(inspect->area == ALL)
     else if(inspect->area == SUBAREA)
@@ -719,51 +711,89 @@ int CompareEngine::SummaryResultsAndLocatorPo()
         }
 
         // 找到匹配系数最大的匹配项
-        float f =loc.spaces[0].ratio;
-        int g = 0;
-        for(int i = 0;i< (int)loc.spaces.size();++i)
+        if(loc.spaces.size()>0)
         {
-            if(f < loc.spaces[i].ratio)
+            float f =loc.spaces[0].ratio;
+            int g = 0;
+            for(int i = 0;i< (int)loc.spaces.size();++i)
             {
-                f = loc.spaces[i].ratio;
-                g = i;
+                if(f < loc.spaces[i].ratio)
+                {
+                    f = loc.spaces[i].ratio;
+                    g = i;
 
+                }
             }
+
+            // 定位
+            std::cout<< "luzhiPo:"<<loc.spaces[g].luzhiPo<<"    "<< "mobanPo:"<< loc.spaces[g].mobanPo<<"  "<<"ratio:"<<loc.spaces[g].ratio<<std::endl;
+            //std::cout << "loc.spaces[g].ratio"<<loc.spaces[g].ratio<<std::endl;
+            tm.inspect_index_start = loc.spaces[g].luzhiPo - loc.spaces[g].mobanPo + 1;
+            tm.inspect_ts_start = loc.spaces[g].luzhi_ts - loc.spaces[g].mobanPo + 1;
+            if(tm.inspect_index_start< 0)
+            {
+                tm.inspect_index_start = -1*tm.inspect_index_start;
+            }
+            tm.inspect_index_end = tm.inspect_index_start + tm.ptrTemplet->picture_quantity - 1;
+            tm.inspect_ts_end = tm.inspect_ts_start + tm.ptrTemplet->picture_quantity - 1;
+
+
         }
 
-        // 定位
-        std::cout<< "luzhiPo:"<<loc.spaces[g].luzhiPo<<"    "<< "mobanPo:"<< loc.spaces[g].mobanPo<<"  "<<"ratio:"<<loc.spaces[g].ratio<<std::endl;
-        //std::cout << "loc.spaces[g].ratio"<<loc.spaces[g].ratio<<std::endl;
-        tm.inspect_index_start = loc.spaces[g].luzhiPo - loc.spaces[g].mobanPo + 1;
-        tm.inspect_ts_start = loc.spaces[g].luzhi_ts - loc.spaces[g].mobanPo + 1;
-        if(tm.inspect_index_start< 0)
-        {
-            tm.inspect_index_start = -1*tm.inspect_index_start;
-        }
-        tm.inspect_index_end = tm.inspect_index_start + tm.ptrTemplet->picture_quantity - 1;
-        tm.inspect_ts_end = tm.inspect_ts_start + tm.ptrTemplet->picture_quantity - 1;
     }
 
 
-    // 确定播放位序
-    std::map<std::string,TempletMatch>::iterator tit = m_mapTempletMatch.begin();
-    for(; tit != m_mapTempletMatch.end();tit++)
+    // 确定播放位序和前后广告
+    std::vector<PAIR> vecTmp(m_mapTempletMatch.begin(),m_mapTempletMatch.end());
+    std::sort(vecTmp.begin(),vecTmp.end(),CmpByValue());
+    for(int i = 0 ;i < vecTmp.size();i++)
     {
-        TempletMatch &tm = tit->second;
-        if(tm.inspect_ts_start == 0)
+        PAIR &p = vecTmp[i];
+        TempletMatch &tm = p.second;
+        if(tm.inspect_ts_start==0)
         {
-            continue;
+            break;
         }
-        std::map<std::string,TempletMatch>::iterator sit = m_mapTempletMatch.begin();
-        for(; sit != m_mapTempletMatch.end();sit++)
-        {
-            TempletMatch &stm = it->second;
-            if(stm.inspect_ts_start>0 && tm.inspect_ts_start >= stm.inspect_ts_start )
-            {
-                tm.showorder++;
-            }
-        }
+
+         std::map<std::string,TempletMatch>::iterator fit = m_mapTempletMatch.find(p.first);
+         if(fit != m_mapTempletMatch.end())
+         {
+             TempletMatch &ftm = fit->second;
+             ftm.showorder  = i+1;
+             if(i-1>=0)
+             {
+                 PAIR &pre = vecTmp[i-1];
+                 TempletMatch &pretm = pre.second;
+                 ftm.backAd = pretm.ptrTemplet->ad_fileName;
+             }
+
+             if(i+1<vecTmp.size())
+             {
+                 PAIR &pre = vecTmp[i+1];
+                 TempletMatch &pretm = pre.second;
+                 ftm.preAd = pretm.ptrTemplet->ad_fileName;
+             }
+         }
     }
+
+//    std::map<std::string,TempletMatch>::iterator tit = m_mapTempletMatch.begin();
+//    for(; tit != m_mapTempletMatch.end();tit++)
+//    {
+//        TempletMatch &tm = tit->second;
+//        if(tm.inspect_ts_start == 0)
+//        {
+//            continue;
+//        }
+//        std::map<std::string,TempletMatch>::iterator sit = m_mapTempletMatch.begin();
+//        for(; sit != m_mapTempletMatch.end();sit++)
+//        {
+//            TempletMatch &stm = it->second;
+//            if(stm.inspect_ts_start>0 && tm.inspect_ts_start <= stm.inspect_ts_start )
+//            {
+//                tm.showorder++;
+//            }
+//        }
+//    }
 
 
     return nRet;
@@ -783,10 +813,19 @@ int CompareEngine::SummaryResultsAndLocatorPo()
 bool CompareEngine::InsertMatch_DB()
 {
 
+    CppMySQL3DB MatchDB;
+
     C_Time curtm;
     std::string strcur;
     curtm.setCurTime();
     curtm.getTimeStr(strcur);
+
+    if(MatchDB.open(m_strDB_IP.c_str(),m_strDB_User.c_str(),
+            m_strPasswd.c_str(),"AdInspect",m_nPort) == -1)
+    {
+            printf(0,"mysql open failed!\n");
+            return -1;
+    }
 
     std::map<std::string,TempletMatch>::iterator it = m_mapTempletMatch.begin();
     for(;it != m_mapTempletMatch.end();it++)
@@ -815,7 +854,7 @@ bool CompareEngine::InsertMatch_DB()
                                "\"%s\",%d,\"%s\",%.3f,\'%s\')",
                                 m_curtaskid.c_str(),tm.ptrTemplet->uuid,mi.nInspectIndex,mi.nInspectTimeStamp,
                       strtm.c_str(),mi.nTempletIndex,tm.ptrTemplet->ad_fileName,mi.fWeight,strcur.c_str());
-             int nResult = m_MatchDB.execSQL(sql);
+             int nResult = MatchDB.execSQL(sql);
              if(nResult != -1)
              {
                  loginfo("Save match result successful!(%s)",sql);
@@ -845,6 +884,15 @@ bool CompareEngine::InsertMatch_DB()
 bool CompareEngine::InsertResult_DB()
 {
 
+    CppMySQL3DB CompareResultDB;
+
+    if(CompareResultDB.open(m_strDB_IP.c_str(),m_strDB_User.c_str(),
+                            m_strPasswd.c_str(),"oristarmr",m_nPort) == -1)
+    {
+            printf(0,"mysql open failed!\n");
+            return -1;
+    }
+
     std::map<std::string,TempletMatch>::iterator it = m_mapTempletMatch.begin();
     for(;it != m_mapTempletMatch.end();it++)
     {
@@ -868,8 +916,6 @@ bool CompareEngine::InsertResult_DB()
         struct timeval tv;
         gettimeofday(&tv, NULL);
         unsigned long msec =  tv.tv_sec*1000+tv.tv_usec/1000;
-
-        std::string cinema_city = para->m_LocationInfo;
 
         std::string videopath;
         if(  tm.resultpath.rfind("/")!=  tm.resultpath.size()-1)
@@ -900,6 +946,29 @@ bool CompareEngine::InsertResult_DB()
         starttm.getTimeStr(strStart);
         endtm.getTimeStr(strEnd);
 
+        int normal_order = tm.ptrTemplet->ad_order;
+        int order_status = 0;
+        if(normal_order != 0 && normal_order==tm.showorder)
+        {
+           // 位序正常
+           order_status = 1;
+        }
+        else if(normal_order != 0 && normal_order!=tm.showorder)
+        {
+            // 位序异常
+           order_status = 2;
+        }
+        else if(normal_order == 0)
+        {
+            // 位序正常
+            order_status = 1;
+        }
+        else
+        {
+            // 位序异常
+            order_status = 2;
+        }
+
          snprintf(sql,1024,"insert into "
                           "app_monitor(id,advert_id,create_time,sortIdx,advert_back,"
                            "advert_previous,cinema_city,cinema_name,videopath,compare_imgpath,hall_no,"
@@ -907,11 +976,11 @@ bool CompareEngine::InsertResult_DB()
                            "values(\"%s\",\"%s\",\"%s\",%u,\"%s\","
                            "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%d,"
                            "\"%s\",%d,\"%s\",%d,%d)",
-                  id.c_str(),tm.ptrTemplet->uuid,strCurtime.c_str(),msec,"",
-                  "","北京","大红门",vediofullpath.c_str(),compareimgpath.c_str(),m_hallid,
-                  strEnd.c_str(),tm.showorder,strStart.c_str(),1,tm.inspect_index_end-tm.inspect_index_start+1
+                  id.c_str(),tm.ptrTemplet->uuid,strCurtime.c_str(),msec,tm.backAd.c_str(),
+                  tm.preAd.c_str(),"北京市","大红门",vediofullpath.c_str(),compareimgpath.c_str(),m_hallid,
+                  strEnd.c_str(),tm.showorder,strStart.c_str(),order_status,tm.inspect_index_end-tm.inspect_index_start+1
                   );
-         int nResult = m_CompareResultDB.execSQL(sql);
+         int nResult = CompareResultDB.execSQL(sql);
          if(nResult != -1)
          {
              loginfo("Save compare result successful!(%s)",sql);

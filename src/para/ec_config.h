@@ -1,7 +1,7 @@
-//@file:ec_config.h
-//@brief: ec_config¡£
-//ec_config£ºÌá¹©ÎÄ¼ş·ÃÎÊ·â×°ÓÉC_Paraµ÷ÓÃ ´ËÀàÎªÍâ²¿ÒıÓÃ¡£
-//@ÒıÓÃÈË:wangzhongping@oristartech.com
+ï»¿//@file:ec_config.h
+//@brief: ec_configã€‚
+//ec_configï¼šæä¾›æ–‡ä»¶è®¿é—®å°è£…ç”±C_Paraè°ƒç”¨ æ­¤ç±»ä¸ºå¤–éƒ¨å¼•ç”¨ã€‚
+//@å¼•ç”¨äºº:wangzhongping@oristartech.com
 //dade:2012-07-12
 
 
@@ -21,7 +21,7 @@ using namespace std;
 #define	KEYVALUE_FLAG	61		// '='
 #define BLANK_FLAG1		32		// ' '
 #define BLANK_FLAG2		9		// '	'
-#define BLANK_FLAG3		13		// »»ĞĞ
+#define BLANK_FLAG3		13		// æ¢è¡Œ
 
 //#define MAX_BUFF_LEN	255
 #define MAX_BUFF_LEN	1024
@@ -53,12 +53,12 @@ typedef struct _CFG_FILE
 
 
 
-/// ÎÄ¼ş½á¹¹¶¨Òå£ºÎÄ¼şÄÚÈİ = <×¢ÊÍ> + <¿Õ°×ĞĞ> + <¶ÎĞÅÏ¢1> + <¶ÎĞÅÏ¢2> + ....
-/// ¶ÎĞÅÏ¢ = ¹Ø¼üÖµ + ×¢ÊÍ
+/// æ–‡ä»¶ç»“æ„å®šä¹‰ï¼šæ–‡ä»¶å†…å®¹ = <æ³¨é‡Š> + <ç©ºç™½è¡Œ> + <æ®µä¿¡æ¯1> + <æ®µä¿¡æ¯2> + ....
+/// æ®µä¿¡æ¯ = å…³é”®å€¼ + æ³¨é‡Š
 
-/// ×¢Òâ:¶ÎÃû Óë ¹Ø¼üÖµÃû Ó¦¸ÃÎª×ÖÄ¸Êı×Ö»òÏÂ»®ÏßµÄÅÅÁĞ×éºÏ  ºóÃæ¿ÉÒÔÓĞ×¢ÊÍ»ò¿Õ¸ñ
-/// ×Ö·û'['Óë']'Ö®¼äÎª¶ÎÃû
-/// ¿ÉÒÔÓĞ×¢ÊÍÄÚÈİ,ÒÔ×Ö·û'#'×÷Îª×¢ÊÍÆğÊ¼£¬'#'Ö®Ç°¿ÉÒÔÓĞ¿Õ¸ñ£¬µ«²»ÄÜÓĞÆäËüÄÚÈİ(¶ÎÃû ºÍ ¹Ø¼üÖµÃû³ıÍâ)
+/// æ³¨æ„:æ®µå ä¸ å…³é”®å€¼å åº”è¯¥ä¸ºå­—æ¯æ•°å­—æˆ–ä¸‹åˆ’çº¿çš„æ’åˆ—ç»„åˆ  åé¢å¯ä»¥æœ‰æ³¨é‡Šæˆ–ç©ºæ ¼
+/// å­—ç¬¦'['ä¸']'ä¹‹é—´ä¸ºæ®µå
+/// å¯ä»¥æœ‰æ³¨é‡Šå†…å®¹,ä»¥å­—ç¬¦'#'ä½œä¸ºæ³¨é‡Šèµ·å§‹ï¼Œ'#'ä¹‹å‰å¯ä»¥æœ‰ç©ºæ ¼ï¼Œä½†ä¸èƒ½æœ‰å…¶å®ƒå†…å®¹(æ®µå å’Œ å…³é”®å€¼åé™¤å¤–)
 
 class ec_config
 {
@@ -68,25 +68,26 @@ public:
 
 public:
 
-	/// Ğ´ĞÅÏ¢
+	/// å†™ä¿¡æ¯
 	int writevalue( const char *psec = NULL, const char *pkey = NULL, const char *pvalue = NULL, const char *ppath = NULL );
-	/// ¶ÁĞÅÏ¢
+	/// è¯»ä¿¡æ¯
 	int readvalue( const char *psec = NULL, const char *pkey = NULL, char *pvalue = NULL, const char *ppath = NULL);
 
 private:
-	/// ¶ÁÈ¡ÎÄ¼şÄÚÈİ
+	/// è¯»å–æ–‡ä»¶å†…å®¹
 	int readfinfo( const char *ppath, CFG_FILE &cfg_file, int &icntline );
-	/// ÊÇ·ñÊÇ×¢ÊÍÄÚÈİ
+	/// æ˜¯å¦æ˜¯æ³¨é‡Šå†…å®¹
 	int iscomment( const char *pbuf );
-	/// ÊÇ·ñÊÇ¶ÎÄÚÈİ
+	/// æ˜¯å¦æ˜¯æ®µå†…å®¹
 	int getsection( const char *pbuf, CFG_INFO &cfg_info );
-	/// ÊÇ·ñÊÇ¹Ø¼üÖµ
+	/// æ˜¯å¦æ˜¯å…³é”®å€¼
 	int getkey( const char *pbuf, CFG_INFO &cfg_info );
-	/// ÊÇ·ñÊÇ¿Õ°×ĞĞ
+	/// æ˜¯å¦æ˜¯ç©ºç™½è¡Œ
 	int isblank( const char *pbuf );
-	/// È¥µôÁ½¶ËµÄ¿Õ°××Ö·û£¨¿Õ¸ñ»òÖÆ±í·û),·µ»Ø×Ö·û´®³¤¶È
+	/// å»æ‰ä¸¤ç«¯çš„ç©ºç™½å­—ç¬¦ï¼ˆç©ºæ ¼æˆ–åˆ¶è¡¨ç¬¦),è¿”å›å­—ç¬¦ä¸²é•¿åº¦
 	int trim( const char *pbuf,char *pdest,int ilenmax );
 
 };
 
 #endif
+Q

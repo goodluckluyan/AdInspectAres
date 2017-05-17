@@ -280,8 +280,11 @@ void CDownLoadMgr::ProcessDownTask()
 
         if(i==3)
         {
-            logerror("execute result download task failed(%d-%d %s)",
+            logerror("execute result download task failed(%s-%s %s)",
                      strStart.c_str() ,strEnd.c_str(),task.savepath.c_str());
+            pthread_mutex_lock(&m_mutx);
+            m_lstSampleDownloadTask.pop_front();
+            pthread_mutex_unlock(&m_mutx);
             return;
         }
 
@@ -374,8 +377,12 @@ void CDownLoadMgr::ProcessDownTask()
 
             if(i==3)
             {
-                logerror("execute download task failed(%d-%d %s)",
+                logerror("execute download task failed(%s-%s %s)",
                          strStart.c_str() ,strEnd.c_str(),task.savepath.c_str());
+
+                pthread_mutex_lock(&m_mutx);
+                m_lstDownloadTask.pop_front();
+                pthread_mutex_unlock(&m_mutx);
                 return;
             }
 
@@ -690,6 +697,12 @@ bool CDownLoadMgr::ParseDownLoadXml(std::string &retXml,long long &downloadid,st
                 downloadid = atoll(str_state.c_str()) ;
             }
             XMLString::release(&pid);
+
+            // 添加下载任务失败
+            if(downloadid == 0)
+            {
+                return false;
+            }
         }
 
         // 读取downloadID节点

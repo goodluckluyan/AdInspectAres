@@ -240,7 +240,8 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
     int videoHeight = pInputCodecContext->height;
 	///帧率
     /// float frameRate = (float)avRation.den/avRation.num;
-    int frameRate = pInputFormatContext->streams[videoIndex]->avg_frame_rate.num;
+    AVRational avRate = pInputFormatContext->streams[videoIndex]->avg_frame_rate;
+    int frameRate = avRate.num/avRate.den;
     if(frameRate == 0)
     {
         printf("error,frameRate is 0.\n");

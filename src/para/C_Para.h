@@ -144,9 +144,6 @@ public:
     // 应用程序路径
     std::string m_strInipath;
 
-    // 位置信息，城市，影院名称
-    std::string m_LocationInfo;
-
     // 比对成功的阈值
     float m_WeightThreshold;
 

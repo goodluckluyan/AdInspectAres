@@ -319,15 +319,6 @@ int C_Para::ReadPara()
 
 
     memset(a,0,64);
-    iResult = config.readvalue("PARA","LocationInfo",a,strInipath.c_str());
-    if(iResult != 0)
-    {
-        return iResult;
-    }
-    m_LocationInfo = a;
-    loginfo("reading config ,LocationInfo:%s",m_LocationInfo.c_str());
-
-    memset(a,0,64);
     iResult = config.readvalue("PARA","WeightThreshold",a,strInipath.c_str());
     if(iResult != 0)
     {

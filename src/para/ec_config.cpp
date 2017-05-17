@@ -1,6 +1,6 @@
-//@file:ec_config.cpp
-//@brief: ec_config¹¦ÄÜÊµÏÖ¡£
-//@ÒýÓÃÈË:wangzhongping@oristartech.com
+ï»¿//@file:ec_config.cpp
+//@brief: ec_configåŠŸèƒ½å®žçŽ°ã€‚
+//@å¼•ç”¨äºº:wangzhongping@oristartech.com
 //dade:2012-07-12
 
 
@@ -49,7 +49,7 @@ int ec_config::writevalue( const char *psec, const char *pkey, const char *pvalu
 		return -1;
 	}
 
-	/// ¼ìË÷¶ÎÖµÓë¹Ø¼üÖµ
+	/// æ£€ç´¢æ®µå€¼ä¸Žå…³é”®å€¼
 
 	if( NULL == psec )
 	{
@@ -115,7 +115,7 @@ int ec_config::writevalue( const char *psec, const char *pkey, const char *pvalu
 		}
 	}
 
-	/// ´¦Àí¶ÎÖµ ¹Ø¼üÖµ
+	/// å¤„ç†æ®µå€¼ å…³é”®å€¼
 	if( std::string::npos == ipos_sec)
 	{
 		if(NULL != pkey &&
@@ -222,7 +222,7 @@ int ec_config::writevalue( const char *psec, const char *pkey, const char *pvalu
 	}
 
 
-	/// Ð´Êý¾Ý
+	/// å†™æ•°æ®
 	if(cfg_file.cfg_infos.size() > 0)
 	{
 		for( vector<CFG_INFO>::iterator it = cfg_file.cfg_infos.begin();
@@ -416,7 +416,7 @@ int ec_config::readvalue( const char *psec, const char *pkey, char *pvalue, cons
 						{
 							stmp = itcfg->skeyvalue;
 
-							/// È¥µôÁ½¶Ë¿Õ°××Ö·û
+							/// åŽ»æŽ‰ä¸¤ç«¯ç©ºç™½å­—ç¬¦
 							trim(stmp.c_str(),cbuf,MAX_BUFF_LEN);
 							sprintf(pvalue,"%s",cbuf);
 
@@ -651,10 +651,10 @@ int ec_config::getsection( const char *pbuf, CFG_INFO &cfg_info )
 	//cout<<"judge secton"<<endl;
 	//cout<<pbuf<<endl;
 
-	/// ÅÐ¶ÏÊÇ·ñÎª¶ÎµÄ±ê×¼ÒÔ·Ö¸ô·û '[' ']' ×÷Îª½çÏÞ£¬½«×Ö·û´®·Ö³É3²¿·Ö,
-	/// '[' Ö®Ç°µÄ×Ö·û´®±ØÐëÎª¿Õ»ò¿Õ¸ñ×Ö·û
-	/// ']' Ö®ºóµÄ×Ö·û´®±ØÐëÎª¿Õ»ò¿Õ¸ñ×Ö·û
-	/// '['Óë']'Ö®¼äµÄ²¿·Ö²»ÄÜÎª¿Õ»ò°üÀ¨¿Õ¸ñ
+	/// åˆ¤æ–­æ˜¯å¦ä¸ºæ®µçš„æ ‡å‡†ä»¥åˆ†éš”ç¬¦ '[' ']' ä½œä¸ºç•Œé™ï¼Œå°†å­—ç¬¦ä¸²åˆ†æˆ3éƒ¨åˆ†,
+	/// '[' ä¹‹å‰çš„å­—ç¬¦ä¸²å¿…é¡»ä¸ºç©ºæˆ–ç©ºæ ¼å­—ç¬¦
+	/// ']' ä¹‹åŽçš„å­—ç¬¦ä¸²å¿…é¡»ä¸ºç©ºæˆ–ç©ºæ ¼å­—ç¬¦
+	/// '['ä¸Ž']'ä¹‹é—´çš„éƒ¨åˆ†ä¸èƒ½ä¸ºç©ºæˆ–åŒ…æ‹¬ç©ºæ ¼
 
 	if( NULL == pbuf )
 	{
@@ -665,7 +665,7 @@ int ec_config::getsection( const char *pbuf, CFG_INFO &cfg_info )
 	ilenbuf = strlen(pbuf);
 	strbuf = pbuf;
 
-	/// ²éÕÒ·Ö¸ô·û±êÖ¾ '[' ']'
+	/// æŸ¥æ‰¾åˆ†éš”ç¬¦æ ‡å¿— '[' ']'
 	for( int i = 0; i < ilenbuf; i++ )
 	{
 		if( SEC_FLAG1 == pbuf[i] )
@@ -717,23 +717,23 @@ int ec_config::getsection( const char *pbuf, CFG_INFO &cfg_info )
 		return 0;
 	}
 
-	/// ÅÐ¶Ï '['Óë']'Ö®¼äµÄ×Ö·û´®,×Ö·û´®²»ÄÜÈ«Îª¿Õ¸ñ£¬»òÓÃ¿Õ¸ñ·Ö¿ª
+	/// åˆ¤æ–­ '['ä¸Ž']'ä¹‹é—´çš„å­—ç¬¦ä¸²,å­—ç¬¦ä¸²ä¸èƒ½å…¨ä¸ºç©ºæ ¼ï¼Œæˆ–ç”¨ç©ºæ ¼åˆ†å¼€
 	//char csec[255];
 	//memset(csec,0,255);
 	//memcpy(csec,&pbuf[ipos_split1+1],ipos_split2 - ipos_split1 -1);
 	//cout<<csec<<endl;
 
-	int ipos_start = -1; /// sec×Ö·û´®ÆðÊ¼Î»ÖÃ
-	int ipos_end = -1;	 /// sec×Ö·û´®½áÊøÎ»ÖÃ
-	int ipos_blank = -1; /// sec×Ö·û´®ÖÐ³öÏÖ¿Õ¸ñµÄ±êÖ¾
+	int ipos_start = -1; /// secå­—ç¬¦ä¸²èµ·å§‹ä½ç½®
+	int ipos_end = -1;	 /// secå­—ç¬¦ä¸²ç»“æŸä½ç½®
+	int ipos_blank = -1; /// secå­—ç¬¦ä¸²ä¸­å‡ºçŽ°ç©ºæ ¼çš„æ ‡å¿—
 	for( int i = ipos_split1 + 1; i < ipos_split2 ; i++ )
 	{
 		//cout<<pbuf[i]<<endl;
 
-		if( (pbuf[i] > 96 && pbuf[i] < 123 ) ||  // Ð¡Ð´×ÖÄ¸
-			(pbuf[i] > 64 && pbuf[i] < 91 ) ||	 // ´óÐ´×ÖÄ¸
-			(pbuf[i] > 47 && pbuf[i] < 58 ) ||	// Êý×Ö	
-				'_' == pbuf[i])	  				// ÏÂ»®Ïß
+		if( (pbuf[i] > 96 && pbuf[i] < 123 ) ||  // å°å†™å­—æ¯
+			(pbuf[i] > 64 && pbuf[i] < 91 ) ||	 // å¤§å†™å­—æ¯
+			(pbuf[i] > 47 && pbuf[i] < 58 ) ||	// æ•°å­—	
+				'_' == pbuf[i])	  				// ä¸‹åˆ’çº¿
 		{
 			if( ipos_start == -1 )
 			{
@@ -763,7 +763,7 @@ int ec_config::getsection( const char *pbuf, CFG_INFO &cfg_info )
 		return 0;
 	}
 
-	/// ÅÐ¶Ï']'Ö®ºóµÄÊý¾ÝÅÐ¶ÏÊÇ·ñÎª×¢ÊÍ»ò¿Õ¸ñ×Ö·û´®»ò¿Õ
+	/// åˆ¤æ–­']'ä¹‹åŽçš„æ•°æ®åˆ¤æ–­æ˜¯å¦ä¸ºæ³¨é‡Šæˆ–ç©ºæ ¼å­—ç¬¦ä¸²æˆ–ç©º
 
 	if( ilenbuf != ipos_split2 + 1 )
 	{
@@ -776,7 +776,7 @@ int ec_config::getsection( const char *pbuf, CFG_INFO &cfg_info )
 		}
 	}
 
-	/// Ìî³ä¶ÎÐÅÏ¢
+	/// å¡«å……æ®µä¿¡æ¯
 	cfg_info.ssec = pbuf;
 	cfg_info.cfg_type = CFG_SEC;
 
@@ -803,7 +803,7 @@ int ec_config::iscomment( const char *pbuf )
 
 	ilenbuf = strlen(pbuf);
 
-	/// ²éÕÒ×¢ÊÍ±êÖ¾ '#'
+	/// æŸ¥æ‰¾æ³¨é‡Šæ ‡å¿— '#'
 	for( int i = 0; i < ilenbuf; i++ )
 	{
 		if( COMM_FLAG == pbuf[i] )
@@ -858,9 +858,9 @@ int ec_config::getkey( const char *pbuf, CFG_INFO &cfg_info )
 
 	ilenbuf = strlen(pbuf);
 
-	/// ²éÕÒ¹Ø¼üÖµ±êÖ¾ '=',ÒÔµÚÒ»¸öµÈºÅ³öÏÖÎ»ÖÃÎª×¼,½«×Ö·û´®·ÖÎªÁ½²¿·Ö
-	/// µÈºÅÖ®Ç°Îª ¹Ø¼üÖµ µÄÃû×Ö£¬¹Ø¼üÖµµÄÃû×ÖÖ®Ç°±ØÐëÎª¿Õ»ò¿Õ¸ñ×Ö·û´®
-	/// µÈºÅÖ®ºóÎª ¹Ø¼üÖµ µÄÈ¡Öµ, ¹Ø¼üÖµµÄÈ¡ÖµÖ®ºóµÄ×Ö·û´®±ØÐëÎª¿Õ¸ñ»ò×¢ÊÍ
+	/// æŸ¥æ‰¾å…³é”®å€¼æ ‡å¿— '=',ä»¥ç¬¬ä¸€ä¸ªç­‰å·å‡ºçŽ°ä½ç½®ä¸ºå‡†,å°†å­—ç¬¦ä¸²åˆ†ä¸ºä¸¤éƒ¨åˆ†
+	/// ç­‰å·ä¹‹å‰ä¸º å…³é”®å€¼ çš„åå­—ï¼Œå…³é”®å€¼çš„åå­—ä¹‹å‰å¿…é¡»ä¸ºç©ºæˆ–ç©ºæ ¼å­—ç¬¦ä¸²
+	/// ç­‰å·ä¹‹åŽä¸º å…³é”®å€¼ çš„å–å€¼, å…³é”®å€¼çš„å–å€¼ä¹‹åŽçš„å­—ç¬¦ä¸²å¿…é¡»ä¸ºç©ºæ ¼æˆ–æ³¨é‡Š
 
 	for( int i = 0; i < ilenbuf; i++ )
 	{
@@ -876,20 +876,20 @@ int ec_config::getkey( const char *pbuf, CFG_INFO &cfg_info )
 		return 0;
 	}
 
-	/// ÅÐ¶ÏµÈºÅÖ®Ç°µÄ×Ö·û´®ÊÇ·ñ·ûºÏÒªÇó
-	int ipos_start = -1; /// key×Ö·û´®Ãû×ÖÆðÊ¼Î»ÖÃ
-	int ipos_end = -1;	 /// key×Ö·û´®Ãû×Ö½áÊøÎ»ÖÃ
-	int ipos_blank = -1; /// key×Ö·û´®Ãû×ÖÖÐ³öÏÖ¿Õ¸ñµÄ±êÖ¾
+	/// åˆ¤æ–­ç­‰å·ä¹‹å‰çš„å­—ç¬¦ä¸²æ˜¯å¦ç¬¦åˆè¦æ±‚
+	int ipos_start = -1; /// keyå­—ç¬¦ä¸²åå­—èµ·å§‹ä½ç½®
+	int ipos_end = -1;	 /// keyå­—ç¬¦ä¸²åå­—ç»“æŸä½ç½®
+	int ipos_blank = -1; /// keyå­—ç¬¦ä¸²åå­—ä¸­å‡ºçŽ°ç©ºæ ¼çš„æ ‡å¿—
 
 
 	for( int i = 0; i < ipos_eq; i++)
 	{
 		//cout<<pbuf[i]<<endl;
 
-		if( (pbuf[i] > 96 && pbuf[i] < 123 ) ||  // Ð¡Ð´×ÖÄ¸
-			(pbuf[i] > 64 && pbuf[i] < 91 ) ||	 // ´óÐ´×ÖÄ¸
-			(pbuf[i] > 47 && pbuf[i] < 58 ) ||	// Êý×Ö	
-				'_' == pbuf[i])	  				// ÏÂ»®Ïß
+		if( (pbuf[i] > 96 && pbuf[i] < 123 ) ||  // å°å†™å­—æ¯
+			(pbuf[i] > 64 && pbuf[i] < 91 ) ||	 // å¤§å†™å­—æ¯
+			(pbuf[i] > 47 && pbuf[i] < 58 ) ||	// æ•°å­—	
+				'_' == pbuf[i])	  				// ä¸‹åˆ’çº¿
 		{
 			if( ipos_start == -1 )
 			{
@@ -924,34 +924,34 @@ int ec_config::getkey( const char *pbuf, CFG_INFO &cfg_info )
 		return 0;
 	}
 
-	/// ÅÐ¶ÏµÈºÅÖ®ºóµÄ×Ö·û´®ÊÇ·ñ·ûºÏÒªÇó
+	/// åˆ¤æ–­ç­‰å·ä¹‹åŽçš„å­—ç¬¦ä¸²æ˜¯å¦ç¬¦åˆè¦æ±‚
 
-	/// ÊÇ·ñÎª¿Õ°×ÐÐ
+	/// æ˜¯å¦ä¸ºç©ºç™½è¡Œ
 	iret = isblank(&pbuf[ipos_eq+1]);
 	if( iret )
 	{
 		return 0;
 	}
 
-	/// ÊÇ·ñÎª×¢ÊÍ
+	/// æ˜¯å¦ä¸ºæ³¨é‡Š
 	iret = iscomment(&pbuf[ipos_eq+1]);
 	if( iret )
 	{
 		return 0;
 	}
 
-	int ipos_start2 = -1; /// key×Ö·û´®È¡ÖµÆðÊ¼Î»ÖÃ
-	int ipos_end2 = -1;	 /// key×Ö·û´®È¡Öµ½áÊøÎ»ÖÃ
-	int ipos_eof = -1;	///  key×Ö·û´®È¡Öµ½áÊø±êÖ¾
+	int ipos_start2 = -1; /// keyå­—ç¬¦ä¸²å–å€¼èµ·å§‹ä½ç½®
+	int ipos_end2 = -1;	 /// keyå­—ç¬¦ä¸²å–å€¼ç»“æŸä½ç½®
+	int ipos_eof = -1;	///  keyå­—ç¬¦ä¸²å–å€¼ç»“æŸæ ‡å¿—
 
 	for( int i = ipos_eq + 1; i < ilenbuf; i++)
 	{
 		//cout<<pbuf[i]<<endl;
 
-		if( (pbuf[i] > 96 && pbuf[i] < 123 ) ||  // Ð¡Ð´×ÖÄ¸
-			(pbuf[i] > 64 && pbuf[i] < 91 ) ||	 // ´óÐ´×ÖÄ¸
-			(pbuf[i] > 47 && pbuf[i] < 58 ) ||	// Êý×Ö	
-				'_' == pbuf[i])	  				// ÏÂ»®Ïß
+		if( (pbuf[i] > 96 && pbuf[i] < 123 ) ||  // å°å†™å­—æ¯
+			(pbuf[i] > 64 && pbuf[i] < 91 ) ||	 // å¤§å†™å­—æ¯
+			(pbuf[i] > 47 && pbuf[i] < 58 ) ||	// æ•°å­—	
+				'_' == pbuf[i])	  				// ä¸‹åˆ’çº¿
 		{
 			if( ipos_start2 == -1 )
 			{
@@ -981,7 +981,7 @@ int ec_config::getkey( const char *pbuf, CFG_INFO &cfg_info )
 	int icommentflag = 0;
 	if( -1 != ipos_eof )
 	{
-		/// ºóÐøµÄÄÚÈÝÊÇ·ñÊÇ¿Õ¸ñ»ò×¢ÊÍ
+		/// åŽç»­çš„å†…å®¹æ˜¯å¦æ˜¯ç©ºæ ¼æˆ–æ³¨é‡Š
 		if(!iscomment(&pbuf[ipos_eof]))
 		{
 			if(!isblank(&pbuf[ipos_eof]))
@@ -995,21 +995,21 @@ int ec_config::getkey( const char *pbuf, CFG_INFO &cfg_info )
 		}
 	}
 
-	/// Ìî³ä¹Ø¼üÖµÐÅÏ¢
+	/// å¡«å……å…³é”®å€¼ä¿¡æ¯
 	cfg_info.cfg_type = CFG_KEY;
 	cfg_info.ssec = "";
 	cfg_info.sinvalid = "";
-	/// µÈºÅÖ®Ç°Îª¹Ø¼üÖµÃû×Ö
+	/// ç­‰å·ä¹‹å‰ä¸ºå…³é”®å€¼åå­—
 	memset(ctmp,0,MAX_BUFF_LEN);
 	memcpy(ctmp,&pbuf[0],ipos_eq);
 	cfg_info.skeyname = ctmp;
 
-	/// µÈºÅÖ®ºóÎª¹Ø¼üÖµÈ¡Öµ
+	/// ç­‰å·ä¹‹åŽä¸ºå…³é”®å€¼å–å€¼
 	memset(ctmp,0,MAX_BUFF_LEN);
 	memcpy(ctmp,&pbuf[ipos_eq + 1], ipos_end2 - ipos_eq);
 	cfg_info.skeyvalue = ctmp;
 
-	/// ¹Ø¼üÖµÈ¡ÖµÖ®ºóÎª×¢ÊÍ»ò¿Õ°××Ö·û´®
+	/// å…³é”®å€¼å–å€¼ä¹‹åŽä¸ºæ³¨é‡Šæˆ–ç©ºç™½å­—ç¬¦ä¸²
 	if(  -1 != ipos_eof )
 	{
 		if(icommentflag)
@@ -1108,3 +1108,4 @@ int ec_config::trim( const char *pbuf,char *pdest,int ilenmax )
 
 	return ilen;
 }
+ 

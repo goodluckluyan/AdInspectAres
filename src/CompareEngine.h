@@ -45,6 +45,8 @@ typedef struct _TempletMatch
     int showorder;                  //播放位序
     std::string resultpath;         //比对结果路径，存放匹配图片和视频
     std::string vediofilename;      //视频文件名称
+    std::string preAd;              //前广告
+    std::string backAd;             //后广告
 }TempletMatch;
 
 enum Range{NOTHING,MATCH,ALL,SUBAREA};
@@ -121,6 +123,26 @@ private:
     T* const _raw;
 };
 
+//  按播放时间进行排序的比较比较函数对象
+typedef std::pair<std::string,TempletMatch> PAIR;
+struct CmpByValue
+{
+  bool operator()(const PAIR& lhs, const PAIR& rhs)
+  {
+    return lhs.second.inspect_ts_start > rhs.second.inspect_ts_start;
+  }
+};
+
+struct ComparePic
+{
+    bool operator()(PICTUR_ITEM* first ,PICTUR_ITEM* second)
+    {
+        return first->quantity > second->quantity;
+    }
+};
+
+
+
 // shared_equals_raw
 struct match_equals
 {
@@ -141,7 +163,8 @@ private:
 class CompareEngine :public OS_Thread
 {
 public:
-    CompareEngine(int hallid,TempletManager *ptrTempletMgr);
+    CompareEngine(int hallid,TempletManager *ptrTempletMgr,
+                   std::string city,std::string cinema_name);
     ~CompareEngine();
 
     // 设置比对完成回调函数
@@ -205,9 +228,7 @@ private:
     // 匹配成功阈值
     float m_threshold ;
 
-    // 数据库操作
-    CppMySQL3DB m_CompareResultDB;
-    CppMySQL3DB m_MatchDB;
+
 
     // 录播比对区域
     C_Para::Rect m_rect;
@@ -216,6 +237,15 @@ private:
     std::string m_curtaskid;
 
     void * m_loopbuffer;
+    std::string m_City;
+    std::string m_CinemaName;
+
+    std::string m_strDB_IP;
+    std::string m_strDB_User;
+    std::string m_strPasswd;
+    std::string m_strDB_name;
+    int m_nPort ;
+
 
 };
 

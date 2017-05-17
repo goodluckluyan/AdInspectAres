@@ -146,6 +146,8 @@ public:
     int GetCheckDelay(int icommander);
 
 
+
+
 private:
     //  对已下载的视频文件适时加入龙标检测，并对完成的项目进行删除
     int TaskDispatch();
@@ -153,6 +155,8 @@ private:
     void NewTableItemSpace(TASK_ITEM **task_item);
     void DeleteItemSpace(TASK_ITEM **task_item);
     void ClearTableItemSpace(TASK_ITEM *task_item);
+    bool InsertLongbiao_DB(std::string taskid,time_t timets,int hallid);
+    bool GetCinemaInfo_DB();
 private:
     // 下载管理对象
     CDownLoadMgr m_DownloadMgr;
@@ -194,6 +198,8 @@ private:
     C_CS m_mutxCreateTemple;
     std::list<ptrTempletInfo> m_lstCreateTempleTask;
 
+    std::string m_strCity;
+    std::string m_strCinemaName;
 
 };
 

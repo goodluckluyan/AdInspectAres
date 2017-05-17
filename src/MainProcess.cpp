@@ -66,10 +66,10 @@ CMainProcess::~CMainProcess(void)
     *******************************************************************************/
 bool CMainProcess::Init()
 {
-//    Log("运行：CMainProcess::Init()");
+    //    Log("运行：CMainProcess::Init()");
     if (m_bInit)
     {
-//        Log("警告：CMainProcess::Init重复的初始化！");
+        //        Log("警告：CMainProcess::Init重复的初始化！");
         return false;
     }
 
@@ -146,7 +146,7 @@ bool CMainProcess::Init()
     for(int i=0;i<hallcnt;i++)
     {
         int hallno = allhall[i];
-        ptrCompareEngine ptr = std::tr1::shared_ptr<CompareEngine>(new CompareEngine(hallno,&m_TempletMgr));
+        ptrCompareEngine ptr = std::tr1::shared_ptr<CompareEngine>(new CompareEngine(hallno,&m_TempletMgr,m_strCity,m_strCinemaName));
         CompareEngine::SetBCFun(this,BC_CompareComplete);
         ptr->Init(para->m_DB_IP,para->m_DB_User,para->m_DB_Passwd,
                   "oristarmr",para->m_DB_Port,para->m_CompareRect);
@@ -155,6 +155,7 @@ bool CMainProcess::Init()
 
     }
 
+    GetCinemaInfo_DB();
 
     // AddInitTask
     C_Time curtm;
@@ -195,7 +196,7 @@ int CMainProcess::GetCheckDelay(int iCommandNumber)
     case TASK_NUMBER_TASKDISPATCH:
         ret = 3;
         break;
-     case TASK_NUMBER_ADDDOWNLOAD:
+    case TASK_NUMBER_ADDDOWNLOAD:
         ret = para->m_VideoFile_SplitSec;
         break;
     default:
@@ -345,7 +346,7 @@ int CMainProcess::TaskDispatch()
                 loginfo("%d hall vedio file %s %d",fit->first,ptrVF->FilePath.c_str(),ptrVF->Status);
                 if(READY == ptrVF->Status )
                 {
-                     C_GuardCS guard(&m_mutxCurTaskMap);
+                    C_GuardCS guard(&m_mutxCurTaskMap);
                     ptrMarkJobItem mji(new MARK_JOB_ITEM);
                     mji->max_frame_count = para->m_Max_frame_count;
                     strcpy(mji->videopath,ptrVF->FilePath.c_str());
@@ -381,9 +382,9 @@ int CMainProcess::TaskDispatch()
         if(0 == ret)
         {
 
-             loginfo("Create Mark Job Success:%s(p:%d r:%d w:%d h:%d ts:%d) ",
-                     mji->videopath,mji->decode_start_pos,mji->decode_rate,mji->decode_width,
-                     mji->decode_height,mji->time_base);
+            loginfo("Create Mark Job Success:%s(p:%d r:%d w:%d h:%d ts:%d) ",
+                    mji->videopath,mji->decode_start_pos,mji->decode_rate,mji->decode_width,
+                    mji->decode_height,mji->time_base);
         }
         else
         {
@@ -448,16 +449,16 @@ int CMainProcess::TaskDispatch()
                 }
             }
 
-             // 删除标记
-             lsVideoFile::iterator dit = lsVF.begin();
-             for(;dit != lsVF.end();dit++)
-             {
-                 ptrVideoFile &ptrVF = *dit;
-                 if(DIRTY == ptrVF->Status)
-                 {
-                     lsVF.erase(dit++);
-                 }
-             }
+            // 删除标记
+            lsVideoFile::iterator dit = lsVF.begin();
+            for(;dit != lsVF.end();dit++)
+            {
+                ptrVideoFile &ptrVF = *dit;
+                if(DIRTY == ptrVF->Status)
+                {
+                    lsVF.erase(dit++);
+                }
+            }
         }
     }
 
@@ -555,7 +556,7 @@ int CMainProcess::BC_VideoDownLoadComplete(void * ptr,int HallID,int CameraPos,t
     {
         // 比对结果视频
         loginfo("ResultVedio(%d-%d-%s-%d %s) DownLoad Complete!\n",
-               HallID,CameraPos,buff,Duration,FilePath.c_str());
+                HallID,CameraPos,buff,Duration,FilePath.c_str());
     }
 
     return 0;
@@ -701,24 +702,118 @@ int CMainProcess::CompareComplete(std::string &taskid)
                 }
                 else
                 {
-                     tmpCurVideoFile->Status = READY;
-                     loginfo("Compare complete ,all task complete but mark vediofile uncomplete,"
-                             "so this file will continue mark! (uuid:%s path:%s decode_pos:%d duration:%d) ",
-                             tmpCurVideoFile->UUID.c_str(),tmpCurVideoFile->FilePath.c_str(),
-                             tmpCurVideoFile->DecodecPos,tmpCurVideoFile->Duration);
+                    tmpCurVideoFile->Status = READY;
+                    loginfo("Compare complete ,all task complete but mark vediofile uncomplete,"
+                            "so this file will continue mark! (uuid:%s path:%s decode_pos:%d duration:%d) ",
+                            tmpCurVideoFile->UUID.c_str(),tmpCurVideoFile->FilePath.c_str(),
+                            tmpCurVideoFile->DecodecPos,tmpCurVideoFile->Duration);
                 }
-
 
                 fit->second.reset();
 
             }
+
+            // 记录龙标时间点
+            InsertLongbiao_DB(tmpCurVideoFile->UUID,
+                              tmpCurVideoFile->Start+tmpCurVideoFile->DecodecPos-1,
+                              hallnum
+                              );
         }
-
-
     }
     return 0;
 }
 
+
+/*******************************************************************************
+* 函数名称：	InsertLongbiao_DB
+* 功能描述：	记录龙标位置
+* 输入参数：
+* 输出参数：
+* 返 回 值：	true - 成功，false - 失败
+* 其它说明：
+* 修改日期		修改人	      修改内容
+* ------------------------------------------------------------------------------
+* 2017-04-29 	卢岩	      创建
+*******************************************************************************/
+bool CMainProcess::InsertLongbiao_DB(std::string taskid,time_t timets,int hallid)
+{
+    CppMySQL3DB LongbiaoPosDB;
+    C_Para *para = C_Para::GetInstance();
+    if(LongbiaoPosDB.open(para->m_DB_IP.c_str(),para->m_DB_User.c_str(),
+                          para->m_DB_Passwd.c_str(),"AdInspect",para->m_DB_Port) == -1)
+    {
+        printf(0,"mysql open failed!\n");
+        return -1;
+    }
+
+    char sql[1024]={'\0'};
+
+    C_Time curtm;
+    std::string strcur;
+    curtm.setCurTime();
+    curtm.getTimeStr(strcur);
+
+    C_Time tstm;
+    std::string strtm;
+    tstm.setTimeInt(timets);
+    tstm.getTimeStr(strtm);
+
+    snprintf(sql,1024,"insert into dragon(hallno,taskid,time,status,creattime) "
+                      "values(%d,\"%s\",\'%s\',1,\'%s\')",
+            hallid,taskid.c_str(),strtm.c_str(),strcur.c_str());
+    int nResult = LongbiaoPosDB.execSQL(sql);
+    if(nResult != -1)
+    {
+        loginfo("Save longbiao result successful!(%s)",sql);
+        return true;
+
+    }
+    else
+    {
+        loginfo("Save longbiao result failed!(%s)",sql);
+        return false;
+    }
+}
+
+/*******************************************************************************
+* 函数名称：	GetCinemaInfo_DB
+* 功能描述：	获取影院信息
+* 输入参数：
+* 输出参数：
+* 返 回 值：	true - 成功，false - 失败
+* 其它说明：
+* 修改日期		修改人	      修改内容
+* ------------------------------------------------------------------------------
+* 2017-04-29 	卢岩	      创建
+*******************************************************************************/
+bool CMainProcess::GetCinemaInfo_DB()
+{
+    CppMySQL3DB CinemaInfoDB;
+    C_Para *para = C_Para::GetInstance();
+    if(CinemaInfoDB.open(para->m_DB_IP.c_str(),para->m_DB_User.c_str(),
+                          para->m_DB_Passwd.c_str(),"AdInspect",para->m_DB_Port) == -1)
+    {
+        logerror("GetCinemaInfo_DB:mysql open failed!\n");
+        return -1;
+    }
+
+    char sql[128]={'\0'};
+    int nResult;
+
+    snprintf(sql,128,"select city,cinema_name from cinemainfo");
+    CppMySQLQuery query = CinemaInfoDB.querySQL(sql,nResult);
+    int nRows = 0 ;
+    if((nRows = query.numRow()) == 0)
+    {
+            logerror("GetCinemaInfo_DB:cinemainfo talbe no rows!\n");
+            return false;
+    }
+
+    query.seekRow(0);
+    m_strCity = query.getStringField("city");
+    m_strCinemaName = query.getStringField("cinema_name");
+    return true;
+}
 
 
 /*******************************************************************************
@@ -855,7 +950,7 @@ void CMainProcess::DeleteItemSpace(TASK_ITEM **task_item)
         return;
     }
 
-//    ClearTableItemSpace(*task_item);
+    //    ClearTableItemSpace(*task_item);
 
     if(NULL!=(*task_item)->uuid)
     {
