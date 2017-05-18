@@ -212,6 +212,7 @@ int CompareEngine::Routine()
     }
 
     // 输出第一次比对结果,并标注
+    int nMinIndex=m_mapInspectSearchArea.size();
     std::map<std::string,TempletMatch>::iterator fpit = m_mapTempletMatch.begin();
     for(;fpit != m_mapTempletMatch.end();fpit++)
     {
@@ -228,13 +229,18 @@ int CompareEngine::Routine()
             loginfo("Match success(i:%d ts:%d t:%d w:%f)",mi.nInspectIndex,mi.nInspectTimeStamp,
                     mi.nTempletIndex,mi.fWeight);
 
-            // 非快速比较不进行二次比较，所有不标注
-            if(!para->m_IsSpeedPriority)
+            // 快速比较进行二次比较，所有标注一下
+            if(para->m_IsSpeedPriority)
             {
                 // 匹配成功，对录播图的左右邻居进行标注，以便二次匹配
                 int start = std::max(mi.nInspectIndex-mi.nTempletIndex,0)+1;
                 int end = start+tm.ptrTemplet->picture_quantity;
                 Label_inspect(start,end,tm.ptrTemplet);
+
+                if(start < nMinIndex)
+                {
+                    nMinIndex = start;
+                }
             }
         }
     }
@@ -243,6 +249,18 @@ int CompareEngine::Routine()
     // 快速比较进行二次按标注比较
     if(para->m_IsSpeedPriority)
     {
+        // 对判断的前期空白区域标注为空
+        for(int i = 1 ;i<nMinIndex;i++)
+        {
+            std::map<int,ptrSearchArea>::iterator fit =  m_mapInspectSearchArea.find(i);
+            if(fit!= m_mapInspectSearchArea.end())
+            {
+                ptrSearchArea &ptr = fit->second;
+                ptr->area = NOTHING;
+                loginfo("lable inspect iamge %d is NOTHING",i);
+            }
+        }
+
         // 二次比较
         index = 0;
         std::map<int,ptrSearchArea>::iterator sit = m_mapInspectSearchArea.begin();
@@ -977,7 +995,7 @@ bool CompareEngine::InsertResult_DB()
                            "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%d,"
                            "\"%s\",%d,\"%s\",%d,%d)",
                   id.c_str(),tm.ptrTemplet->uuid,strCurtime.c_str(),msec,tm.backAd.c_str(),
-                  tm.preAd.c_str(),"北京市","大红门",vediofullpath.c_str(),compareimgpath.c_str(),m_hallid,
+                  tm.preAd.c_str(),m_City.c_str(),m_CinemaName.c_str(),vediofullpath.c_str(),compareimgpath.c_str(),m_hallid,
                   strEnd.c_str(),tm.showorder,strStart.c_str(),order_status,tm.inspect_index_end-tm.inspect_index_start+1
                   );
          int nResult = CompareResultDB.execSQL(sql);

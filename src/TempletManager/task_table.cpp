@@ -1287,8 +1287,8 @@ int TaskTable::MapItemVarToArray(TASK_ITEM *task_item)
 		m_task_column_value_map[15].pvalue_var = task_item->dstVideoHeight;
 		m_task_column_value_map[16].pvalue_var = task_item->realDuration;
 		m_task_column_value_map[17].pvalue_var = task_item->featureFilePath;
-		m_task_column_value_map[18].pvalue_var = task_item->ad_order;
-		m_task_column_value_map[19].pvalue_var = task_item->description;
+        m_task_column_value_map[18].pvalue_var = task_item->description;
+        m_task_column_value_map[19].pvalue_var = task_item->ad_order;
 		
 	}
 

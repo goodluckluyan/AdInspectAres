@@ -225,8 +225,14 @@ bool CMainProcess::DeInit()
         return false;
     }
 
+    m_mutxCreateTemple.EnterCS();
+    pthread_cond_signal(&m_condCreateTemple);
+    m_mutxCreateTemple.LeaveCS();
+
     C_ThreadManage::DestoryInstance();
     C_Para::DestoryInstance();
+
+
 
     m_bInit = false;
     return true;
@@ -835,6 +841,11 @@ int CMainProcess::CreateTempletFeatrue()
         pthread_cond_wait(&m_condCreateTemple,static_cast<pthread_mutex_t*>(m_mutxCreateTemple.getmutx()));
     }
     m_mutxCreateTemple.LeaveCS();
+
+    if(g_bAresQuit)
+    {
+        return 0;
+    }
 
     C_Para * para = C_Para::GetInstance();
     if(m_lstCreateTempleTask.size()!=0)

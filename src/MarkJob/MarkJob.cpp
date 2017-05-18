@@ -90,6 +90,11 @@ int MarkJob::UnInitialize()
 
 	m_framebufferloop.DestroyFrameBuffer();
 
+    if(m_pmarkengine)
+    {
+        delete m_pmarkengine;
+    }
+
 	return ret;
 }
 int MarkJob::CreateMarkJob(MARK_JOB_ITEM *pmarkjob,pfunc_callback_mark pmarkcallback,void *puserdata)
