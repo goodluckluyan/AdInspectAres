@@ -76,6 +76,7 @@ int CDownLoadMgr::Init(int HallID, int CameraPos, DBLoginInfo &DBinfo, std::stri
     m_NVRIP = wsip;
     m_NVRPort = wsport;
     m_TimeStep = TimeStep;
+    m_DBinfo = DBinfo;
 
      C_Para* para = C_Para::GetInstance();
      char tmpbuf[512]={'\0'};
@@ -91,20 +92,6 @@ int CDownLoadMgr::Init(int HallID, int CameraPos, DBLoginInfo &DBinfo, std::stri
 
     m_startsec = para->m_ShowingJobStartSec;
     m_endsec = para->m_ShowingJobEndSec;
-    if(m_DownLoad_DB.open(DBinfo.ip.c_str(),DBinfo.username.c_str(),
-            DBinfo.passwd.c_str(),"NVRControl") == -1)
-    {
-            logerror("NVRControl database open failed!\n");
-            return -1;
-    }
-
-
-    if(m_CompleteFile_DB.open(DBinfo.ip.c_str(),DBinfo.username.c_str(),
-            DBinfo.passwd.c_str(),"AdInspect") == -1)
-    {
-            logerror("AdInspect databases open failed!\n");
-            return -1;
-    }
 
 
 }
@@ -188,8 +175,18 @@ bool CDownLoadMgr::AddDownTask()
     int iStarTime = t2.getTimeInt() + m_startsec;
     int iEndTime = t2.getTimeInt() + m_endsec;
 
+
+    // 判断是否还是当天
+    C_Time last;
+    last.setTimeInt(m_lastsec);
+    if(last.getDay()!= localtime(&iCurTime)->tm_mday)
+    {
+        m_lastsec = iStarTime-1;
+    }
+
+
     // 判断在不在放映时间内
-    if(m_lastsec+1 > iEndTime || m_lastsec + 1 < iStarTime)
+    if(iCurTime > iEndTime || iCurTime < iStarTime+m_TimeStep)
     {
         C_Time cur,start,end;
         cur.setTimeInt(m_lastsec);
@@ -205,7 +202,7 @@ bool CDownLoadMgr::AddDownTask()
         return false;
     }
 
-    item.start = m_lastsec + 1;
+    item.start = m_lastsec ;
     item.savepath = m_savepath;
     int itemend = item.start + m_TimeStep-1;
     if(itemend > iEndTime)
@@ -252,8 +249,6 @@ void CDownLoadMgr::ProcessDownTask()
     if(m_lstSampleDownloadTask.size()!=0)
     {
         DownLoadInfoItem &task = m_lstSampleDownloadTask.front();
-        char taskid[32]={'\0'};
-        snprintf(taskid,32,"%d-%d-%d-%d",m_HallID,m_CameraPos,task.start,task.duration);
 
         // 转换成可读时间
         C_Time t1,t2;
@@ -262,6 +257,11 @@ void CDownLoadMgr::ProcessDownTask()
         std::string strStart,strEnd;
         t1.getTimeStr(strStart);
         t2.getTimeStr(strEnd);
+
+        char taskid[32]={'\0'};
+        snprintf(taskid,32,"%d-%d-%d%d%d%d%d-%d",m_HallID,m_CameraPos,t1.getYear(),t1.getMonth(),
+                 t1.getDay(),t1.getHour(),t1.getMinute(),task.duration);
+
 
         // 开始下载
         long long downloadid;
@@ -326,8 +326,7 @@ void CDownLoadMgr::ProcessDownTask()
 
 
         DownLoadInfoItem &task = m_lstDownloadTask.front();
-        char taskid[32]={'\0'};
-        snprintf(taskid,32,"%d-%d-%d-%d",m_HallID,m_CameraPos,task.start,task.duration);
+
 
          // 转换成可读时间
         C_Time t1,t2;
@@ -336,6 +335,10 @@ void CDownLoadMgr::ProcessDownTask()
         t1.getTimeStr(strStart);
         t2.setTimeInt(task.start + task.duration - 1);
         t2.getTimeStr(strEnd);
+
+        char taskid[32]={'\0'};
+        snprintf(taskid,32,"%d-%d-%d%d%d%d%d-%d",m_HallID,m_CameraPos,t1.getYear(),t1.getMonth(),
+                 t1.getDay(),t1.getHour(),t1.getMinute(),task.duration);
 
         // 是否已经存在
         int status;
@@ -685,6 +688,10 @@ bool CDownLoadMgr::ParseDownLoadXml(std::string &retXml,long long &downloadid,st
         {
 //            LOGFAT(ERROR_PARSE_MONITORSTATE_XML,
 //                   "ParseDownLoadXml:没有找到downloadID节点");
+            delete ptrParser;
+            delete ptrInputsource;
+            ptrInputsource = NULL;
+            ptrParser = NULL;
             return false;
         }
         else
@@ -701,6 +708,10 @@ bool CDownLoadMgr::ParseDownLoadXml(std::string &retXml,long long &downloadid,st
             // 添加下载任务失败
             if(downloadid == 0)
             {
+                delete ptrParser;
+                delete ptrInputsource;
+                ptrInputsource = NULL;
+                ptrParser = NULL;
                 return false;
             }
         }
@@ -711,6 +722,10 @@ bool CDownLoadMgr::ParseDownLoadXml(std::string &retXml,long long &downloadid,st
         {
 //            LOGFAT(ERROR_PARSE_MONITORSTATE_XML,
 //                   "ParseDownLoadXml:没有找到downloadID节点");
+            delete ptrParser;
+            delete ptrInputsource;
+            ptrInputsource = NULL;
+            ptrParser = NULL;
             return false;
         }
         else
@@ -753,6 +768,14 @@ bool CDownLoadMgr::ParseDownLoadXml(std::string &retXml,long long &downloadid,st
 *******************************************************************************/
 bool CDownLoadMgr::QueryISDownDone_DB(long long &downloadid)
 {
+    // 数据库对象
+    CppMySQL3DB m_DownLoad_DB;
+    if(m_DownLoad_DB.open(m_DBinfo.ip.c_str(),m_DBinfo.username.c_str(),
+            m_DBinfo.passwd.c_str(),"NVRControl") == -1)
+    {
+            logerror("NVRControl database open failed!\n");
+            return -1;
+    }
 
     // 读取NVRControl数据库的downLoad表
     char sql[256]={'\0'};
@@ -793,10 +816,19 @@ bool CDownLoadMgr::QueryISDownDone_DB(long long &downloadid)
 bool CDownLoadMgr::UpdateDownFileStatus_DB(std::string taskid,int status)
 {
 
+    CppMySQL3DB CompleteFile_DB;
+
+    if(CompleteFile_DB.open(m_DBinfo.ip.c_str(),m_DBinfo.username.c_str(),
+            m_DBinfo.passwd.c_str(),"AdInspect") == -1)
+    {
+            logerror("AdInspect databases open failed!\n");
+            return -1;
+    }
+
      char sql[1024]={'\0'};
     snprintf(sql,1024,"update  readymark set status=%d where taskid=\"%s\"",
                                          status,taskid.c_str());
-    int nResult = m_CompleteFile_DB.execSQL(sql);
+    int nResult = CompleteFile_DB.execSQL(sql);
     if(nResult != -1)
     {
             loginfo("CInvoke:update DownLoadComplete:status database OK<%s>",sql);
@@ -824,13 +856,22 @@ bool CDownLoadMgr::InsertDownTask_DB(std::string taskid,int hallid,int cpos,std:
                                     std::string filename,bool bResultVedio)
 {
 
+    CppMySQL3DB CompleteFile_DB;
+
+    if(CompleteFile_DB.open(m_DBinfo.ip.c_str(),m_DBinfo.username.c_str(),
+            m_DBinfo.passwd.c_str(),"AdInspect") == -1)
+    {
+            logerror("AdInspect databases open failed!\n");
+            return -1;
+    }
+
     char sql[1024]={'\0'};
     snprintf(sql,1024,"insert into "
              "readymark(taskid,hallid,cpos,start,end,filefullpath,status,isresult) "
              "values(\"%s\",%d,%d,\"%s\",\"%s\",\"%s\",%d,%d)",
              taskid.c_str(),hallid,cpos,start.c_str(),end.c_str(),filename.c_str(),ACTIVITY,bResultVedio?1:0);//状态初始值为1
 
-    int nResult = m_CompleteFile_DB.execSQL(sql);
+    int nResult = CompleteFile_DB.execSQL(sql);
     if(nResult != -1)
     {
 //            LOGINFFMT(0,"CInvoke:update system_config:db_synch database OK<%s>",sql);
@@ -860,11 +901,21 @@ bool CDownLoadMgr::InsertDownTask_DB(std::string taskid,int hallid,int cpos,std:
 bool CDownLoadMgr::QueryCompletFileInfo_DB(std::string taskid,int &status,std::string &filepath)
 {
 
+
+    CppMySQL3DB CompleteFile_DB;
+
+    if(CompleteFile_DB.open(m_DBinfo.ip.c_str(),m_DBinfo.username.c_str(),
+            m_DBinfo.passwd.c_str(),"AdInspect") == -1)
+    {
+            logerror("AdInspect databases open failed!\n");
+            return -1;
+    }
+
     // 读取hallinfo表,初始化sms信息
     int nResult;
     char sql[1024]={'\0'};
     snprintf(sql,1024,"select * from readymark where taskid=\"%s\"",taskid.c_str());
-    CppMySQLQuery query = m_CompleteFile_DB.querySQL(sql,nResult);
+    CppMySQLQuery query = CompleteFile_DB.querySQL(sql,nResult);
     int nRows = 0 ;
     if((nRows = query.numRow()) == 0)
     {

@@ -172,6 +172,8 @@ void FeatureTable::DeleteItemSpace(FEATURE_ITEM **feature_item)
 		delete [] (*feature_item)->bmp_quantity;
 		(*feature_item)->bmp_quantity=NULL;
 	}
+
+    delete *feature_item;
 }
 void FeatureTable::DeleteAllItemsSpace(FEATURES *ptaskitems)
 {

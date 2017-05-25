@@ -308,9 +308,6 @@ int MarkJob::markjob_procedure()
 	char time_start[50] = {'\0'};
 	char time_current[50] = {'\0'};
 
-
-    AVPacket InPack;
-
 	struct SwsContext* pimg_convert_ctx_test = NULL; 
 	AVPicture avpicture_convert_test;
 
@@ -391,14 +388,28 @@ int MarkJob::markjob_procedure()
     int prepercent=0;
     while(1)
     {
+        ///运行状态
+        AVPacket *pInPack = NULL;
+        pInPack = av_packet_alloc();
+
 		if(MARK_STATE_RUNNING == m_markjob_state )		
 		{
             if(g_bAresQuit)
             {
+                if(pInPack!=NULL)
+                {
+                    av_packet_free(&pInPack);
+                    pInPack = NULL;
+                }
                 break;
             }
 
-			ret_ffmpeg = av_read_frame(m_ffmpeg_decoder.pInputFormatContext, &InPack);
+
+
+
+
+
+			ret_ffmpeg = av_read_frame(m_ffmpeg_decoder.pInputFormatContext, pInPack);
 
 #if 0
 			memset(buff_temp,0,sizeof(buff_temp));
@@ -415,7 +426,7 @@ int MarkJob::markjob_procedure()
 
 			if(ret_ffmpeg>=0)
 			{
-				frame_len = avcodec_decode_video2(m_ffmpeg_decoder.pInputCodecContext, m_ffmpeg_decoder.ptrOutFrame, &ncomplete, &InPack);
+                frame_len = avcodec_decode_video2(m_ffmpeg_decoder.pInputCodecContext, m_ffmpeg_decoder.ptrOutFrame, &ncomplete, pInPack);
 
 				if(ncomplete > 0)
 				{
@@ -477,6 +488,9 @@ int MarkJob::markjob_procedure()
 
 							if(ret_ffmpeg != m_ffmpeg_decoder.video_height_dest)
 							{
+								av_packet_free(&pInPack);
+                                pInPack = NULL;
+
 								memset(buff_temp,0,sizeof(buff_temp));
 								sprintf(buff_temp,"sws_scale failed 1,ret:%d\n",ret_ffmpeg);
 								g_markjob_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
@@ -567,7 +581,8 @@ int MarkJob::markjob_procedure()
 								//m_markjob_result.find_pos = frame_index;
 								m_markjob_result.find_pos = frame_index+m_ffmpeg_decoder.markjob.decode_start_pos;
 								m_markjob_state = MARK_STATE_FINISHED;
-
+								av_packet_free(&pInPack);
+                                pInPack = NULL;
 								break;
 							}
 						}
@@ -631,11 +646,13 @@ int MarkJob::markjob_procedure()
 			else
 			{	///失败
 				m_markjob_state = MARK_STATE_FINISHED_ERROR;
+				av_packet_free(&pInPack);
+                pInPack = NULL;
 				break;
 			}
 
-
-
+			av_packet_free(&pInPack);
+            pInPack = NULL;
 
 		}
 		else if(MARK_STATE_PAUSING == m_markjob_state)
@@ -646,11 +663,10 @@ int MarkJob::markjob_procedure()
 		else
 		{
 			/// 其他状态(完成、错误、手动停止、停止)
-
+            av_packet_free(&pInPack);
+            pInPack = NULL;
 			break;
 		}
-
-
 
 	}//while
 
@@ -697,6 +713,8 @@ int MarkJob::markjob_procedure()
 	m_isrunning = 0;
 
 	m_framebufferloop.SetContol(BUFFER_CONTROL_IDLE);
+
+	m_framebufferloop.DeleteSpaceItem(&pframeinfo);
 
 	m_markjob_result.state = m_markjob_state;
 

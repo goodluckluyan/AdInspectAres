@@ -7,11 +7,49 @@
 
 extern bool g_bAresQuit;
 extern MyLogger g_compare_logwrite;
+
 #define loginfo(strlog,...)    g_compare_logwrite.PrintLog(MyLogger::INFO,strlog,##__VA_ARGS__)
 #define logerror(strlog,...)   g_compare_logwrite.PrintLog(MyLogger::ERROR,strlog,##__VA_ARGS__)
 #define logdebug(strlog,...)   g_compare_logwrite.PrintLog(MyLogger::DEBUG,strlog,##__VA_ARGS__)
 #define logfatal(strlog,...)   g_compare_logwrite.PrintLog(MyLogger::FATAL,strlog,##__VA_ARGS__)
 
+
+
+_TempletMatch::_TempletMatch()
+{
+    ptrTemplet = NULL;
+    inspect_ts_start = 0;
+    inspect_ts_end = 0;
+    inspect_index_start = 0;
+    inspect_index_end  = 0;
+    showorder = 0;
+}
+
+_TempletMatch::~_TempletMatch()
+{
+   logdebug("delete TempletMatch");
+}
+
+_SearchArea::_SearchArea()
+{
+    area = ALL;
+    ptrAVFrame = NULL;
+    bufsize = 0;
+    featrueNum = 0;
+    ptrfeature = NULL;
+    width_hr = 0;
+    height_hr = 0;
+
+}
+
+_SearchArea::~_SearchArea()
+{
+    if(ptrfeature!=NULL)
+    {
+        delete[] ptrfeature;
+        logdebug("delete [] ptrfeature");
+    }
+}
 
 CompareEngine::CompareEngine(int hallid,TempletManager *ptrTempletMgr,
                              std::string city,std::string cinema_name)
@@ -207,6 +245,10 @@ int CompareEngine::Routine()
         {
             m_ptrTempletMgr->DeleteTemplet_list(&m_rawTemplet);
             ((FrameBufferLoop*)m_loopbuffer)->SetContol(BUFFER_CONTROL_IDLE);
+
+            // 释放监播搜索和模板结构
+            m_mapInspectSearchArea.clear();
+            m_mapTempletMatch.clear();
             return 0;
         }
     }
@@ -275,6 +317,10 @@ int CompareEngine::Routine()
             {
                 m_ptrTempletMgr->DeleteTemplet_list(&m_rawTemplet);
                 ((FrameBufferLoop*)m_loopbuffer)->SetContol(BUFFER_CONTROL_IDLE);
+
+                // 释放监播搜索和模板结构
+                m_mapInspectSearchArea.clear();
+                m_mapTempletMatch.clear();
                 return 0;
             }
         }
@@ -303,7 +349,8 @@ int CompareEngine::Routine()
     InsertMatch_DB();
 
     // 按模板统计结果并定位录播位置
-    SummaryResultsAndLocatorPo();
+    std::vector<suspicious_show> vecss;
+    SummaryResultsAndLocatorPo(vecss);
 
     // 保存图片
     std::map<std::string,TempletMatch>::iterator tit = m_mapTempletMatch.begin();
@@ -319,6 +366,7 @@ int CompareEngine::Routine()
 
     // 结果保存到数据库
     InsertResult_DB();
+    InsertSuspiciousShow_DB(vecss);
 
     // 回调函数
     if(NULL != m_ptrCompareDoneFun)
@@ -616,23 +664,33 @@ int CompareEngine::Label_inspect(int start,int end,_TEMPLET_ITEM* lable)
 * 函数名称：	SummaryResultsAndLocatorPo
 * 功能描述：	按模板统计结果并定位录播位置
 * 输入参数：
-* 输出参数：
+* 输出参数： vecss:可疑播放列表
 * 返 回 值：	true - 成功，false - 失败
 * 其它说明：
 * 修改日期		修改人	      修改内容
 * ------------------------------------------------------------------------------
 * 2017-04-29 	卢岩	      创建
 *******************************************************************************/
-int CompareEngine::SummaryResultsAndLocatorPo()
+int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecss)
 {
     int nRet = 0;
     std::map<std::string,TempletMatch>::iterator it = m_mapTempletMatch.begin();
     for(; it != m_mapTempletMatch.end();it++)
     {
         TempletMatch &tm = it->second;
-        if(tm.vecMatch.size() == 0)
+        if(tm.vecMatch.size() ==0)
         {
             continue;
+        }
+
+        // 只有一个匹配项则判断权重是否大于阈值的1.5倍，小于则认为误匹配
+        if(tm.vecMatch.size() == 1)
+        {
+            MatchItem &Imi = tm.vecMatch[0];
+            if(Imi.fWeight <= C_Para::GetInstance()->m_WeightThreshold*1.5)
+            {
+                continue;
+            }
         }
 
         Location loc;
@@ -658,6 +716,7 @@ int CompareEngine::SummaryResultsAndLocatorPo()
             rea.luzhi_ts = Imi.nInspectTimeStamp;
             loc.spaces.push_back(rea);
         }
+
 
         // 统计差值相同的数量
         int n = 0;
@@ -782,36 +841,46 @@ int CompareEngine::SummaryResultsAndLocatorPo()
              {
                  PAIR &pre = vecTmp[i-1];
                  TempletMatch &pretm = pre.second;
-                 ftm.backAd = pretm.ptrTemplet->ad_fileName;
+                 if(pretm.vecMatch.size()!=0 && pretm.inspect_ts_start!=0)
+                 {
+                      ftm.backAd = pretm.ptrTemplet->ad_fileName;
+                 }
+
              }
 
              if(i+1<vecTmp.size())
              {
                  PAIR &pre = vecTmp[i+1];
                  TempletMatch &pretm = pre.second;
-                 ftm.preAd = pretm.ptrTemplet->ad_fileName;
+                 if(pretm.vecMatch.size()!=0 && pretm.inspect_ts_start!=0)
+                 {
+                      ftm.preAd = pretm.ptrTemplet->ad_fileName;
+                 }
+
              }
          }
     }
 
-//    std::map<std::string,TempletMatch>::iterator tit = m_mapTempletMatch.begin();
-//    for(; tit != m_mapTempletMatch.end();tit++)
-//    {
-//        TempletMatch &tm = tit->second;
-//        if(tm.inspect_ts_start == 0)
-//        {
-//            continue;
-//        }
-//        std::map<std::string,TempletMatch>::iterator sit = m_mapTempletMatch.begin();
-//        for(; sit != m_mapTempletMatch.end();sit++)
-//        {
-//            TempletMatch &stm = it->second;
-//            if(stm.inspect_ts_start>0 && tm.inspect_ts_start <= stm.inspect_ts_start )
-//            {
-//                tm.showorder++;
-//            }
-//        }
-//    }
+
+    // 计算广告间的时长，大于5秒则认为可疑播放
+    int calc_cnt = vecTmp.size();
+    for(int i = 1 ;i<calc_cnt;i++)
+    {
+        unsigned int interval;
+        if(vecTmp[i-1].second.inspect_ts_start>0 && vecTmp[i].second.inspect_ts_end>0)
+        {
+            interval= vecTmp[i-1].second.inspect_ts_start-vecTmp[i].second.inspect_ts_end-1;
+            if(interval >= 5)
+            {
+                suspicious_show ss;
+                ss.adback = vecTmp[i-1].second.ptrTemplet->ad_fileName;
+                ss.adprev = vecTmp[i].second.ptrTemplet->ad_fileName;
+                ss.start = vecTmp[i].second.inspect_ts_end + 1;
+                ss.end = vecTmp[i-1].second.inspect_ts_start -1;
+                vecss.push_back(ss);
+            }
+        }
+    }
 
 
     return nRet;
@@ -990,7 +1059,7 @@ bool CompareEngine::InsertResult_DB()
          snprintf(sql,1024,"insert into "
                           "app_monitor(id,advert_id,create_time,sortIdx,advert_back,"
                            "advert_previous,cinema_city,cinema_name,videopath,compare_imgpath,hall_no,"
-                           "inspect_end_time,inspect_order,inspec_start_time,monitor_status,imglen) "
+                           "inspect_end_time,inspect_order,inspect_start_time,monitor_status,imglen) "
                            "values(\"%s\",\"%s\",\"%s\",%u,\"%s\","
                            "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%d,"
                            "\"%s\",%d,\"%s\",%d,%d)",
@@ -1011,6 +1080,63 @@ bool CompareEngine::InsertResult_DB()
          }
 
     }
+    return true;
+}
+
+/*******************************************************************************
+* 函数名称：	InsertSuspiciousShow_DB
+* 功能描述：	可疑播放入库
+* 输入参数：
+* 输出参数：
+* 返 回 值：	true - 成功，false - 失败
+* 其它说明：
+* 修改日期		修改人	      修改内容
+* ------------------------------------------------------------------------------
+* 2017-04-29 	卢岩	      创建
+*******************************************************************************/
+bool CompareEngine::InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss)
+{
+
+    CppMySQL3DB SuspiciousResultDB;
+
+    if(SuspiciousResultDB.open(m_strDB_IP.c_str(),m_strDB_User.c_str(),
+                            m_strPasswd.c_str(),"AdInspect",m_nPort) == -1)
+    {
+            printf(0,"mysql open failed!\n");
+            return false;
+    }
+
+    for(int i = 0 ;i<vecss.size();i++)
+    {
+        char sql[1024]={'\0'};
+        suspicious_show &ss = vecss[i];
+
+        C_Time starttm,endtm;
+        starttm.setTimeInt(ss.start);
+        endtm.setTimeInt(ss.end);
+        std::string strStart;
+        std::string strEnd;
+        starttm.getTimeStr(strStart);
+        endtm.getTimeStr(strEnd);
+
+        snprintf(sql,1024,"insert into suspicious_show(task_id,adback,adprev,start,end) "
+                          "values(\"%s\",\"%s\",\"%s\",\'%s\',\'%s\')",
+                 m_curtaskid.c_str(),ss.adback.c_str(),ss.adprev.c_str(),
+                 strStart.c_str(),strEnd.c_str());
+        int nResult = SuspiciousResultDB.execSQL(sql);
+        if(nResult != -1)
+        {
+            loginfo("Save suspicious show successful!(%s)",sql);
+
+        }
+        else
+        {
+            loginfo("Save suspicious show failed!(%s)",sql);
+
+        }
+
+    }
+
     return true;
 }
 

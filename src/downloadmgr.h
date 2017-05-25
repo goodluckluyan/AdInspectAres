@@ -112,9 +112,7 @@ private:
     // 用于保存最后一次任务结束的时间，m_lastsec+900就是这次的任务
     int m_lastsec;
 
-    // 数据库对象
-    CppMySQL3DB m_DownLoad_DB;
-    CppMySQL3DB m_CompleteFile_DB;
+    DBLoginInfo m_DBinfo;
 
     // 保存路径
     std::string m_savepath;

@@ -13,7 +13,15 @@
 #include "utility/C_Time.h"
 #include "CompareEngine.h"
 #include "downloadmgr.h"
-#include "parser_xml.h"
+#include "parser_xml.h"\
+
+extern MyLogger g_main_logwrite;
+
+#define loginfo(strlog,...)    g_main_logwrite.PrintLog(MyLogger::INFO,strlog,##__VA_ARGS__)
+#define logerror(strlog,...)   g_main_logwrite.PrintLog(MyLogger::ERROR,strlog,##__VA_ARGS__)
+#define logdebug(strlog,...)   g_main_logwrite.PrintLog(MyLogger::DEBUG,strlog,##__VA_ARGS__)
+#define logfatal(strlog,...)   g_main_logwrite.PrintLog(MyLogger::FATAL,strlog,##__VA_ARGS__)
+
 enum VideoFileStatus
 {
     READY,
@@ -76,6 +84,11 @@ struct TempletInfos
         ShowOder = show_order;
         Type = type;
         ModulePath = module_path;
+    }
+
+    ~TempletInfos()
+    {
+        logdebug("delete TempletInfo");
     }
     std::string Id;
     string OrderNO;
@@ -144,10 +157,6 @@ public:
     int CreateTempletFeatrue();
 
     int GetCheckDelay(int icommander);
-
-
-
-
 private:
     //  对已下载的视频文件适时加入龙标检测，并对完成的项目进行删除
     int TaskDispatch();

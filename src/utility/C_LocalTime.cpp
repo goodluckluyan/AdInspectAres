@@ -1,5 +1,5 @@
-//@file:C_LocalTime.cpp
-//@brief: °üº¬ÀàC_LocalTimeµÄÊµÏÖ¡£
+ï»¿//@file:C_LocalTime.cpp
+//@brief: åŒ…å«ç±»C_LocalTimeçš„å®žçŽ°ã€‚
 //@author:wangzhongping@oristartech.com
 //dade:2012-07-15
 
@@ -38,12 +38,13 @@ int C_LocalTime::LocalTime(time_t* time, tm &TM)
   	 m_CS.LeaveCS();
      return -1; //Add ErrorCtrl and Log
   }
-  TM.tm_year = ptime->tm_year;
-  TM.tm_mon = ptime->tm_mon;
-  TM.tm_mday = ptime->tm_mday;
-  TM.tm_hour = ptime->tm_hour;
-  TM.tm_min = ptime->tm_min;
-  TM.tm_sec = ptime->tm_sec;
+//  TM.tm_year = ptime->tm_year;
+//  TM.tm_mon = ptime->tm_mon;
+//  TM.tm_mday = ptime->tm_mday;
+//  TM.tm_hour = ptime->tm_hour;
+//  TM.tm_min = ptime->tm_min;
+//  TM.tm_sec = ptime->tm_sec;
+  TM = *ptime;
   m_CS.LeaveCS();
   return 0;
 }

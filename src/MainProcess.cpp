@@ -11,13 +11,8 @@
 
 // 程序退出标识
 extern bool g_bAresQuit;
-extern MyLogger g_main_logwrite;
 int g_iscanconnected_database = 1;
 char buff_temp[512] = {'\0'};
-#define loginfo(strlog,...)    g_main_logwrite.PrintLog(MyLogger::INFO,strlog,##__VA_ARGS__)
-#define logerror(strlog,...)   g_main_logwrite.PrintLog(MyLogger::ERROR,strlog,##__VA_ARGS__)
-#define logdebug(strlog,...)   g_main_logwrite.PrintLog(MyLogger::DEBUG,strlog,##__VA_ARGS__)
-#define logfatal(strlog,...)   g_main_logwrite.PrintLog(MyLogger::FATAL,strlog,##__VA_ARGS__)
 
 /*******************************************************************************
     * 函数名称：	CMainProcess
@@ -225,9 +220,13 @@ bool CMainProcess::DeInit()
         return false;
     }
 
+
+
     m_mutxCreateTemple.EnterCS();
     pthread_cond_signal(&m_condCreateTemple);
     m_mutxCreateTemple.LeaveCS();
+
+    m_mapCompareEnginePtr.clear();
 
     C_ThreadManage::DestoryInstance();
     C_Para::DestoryInstance();
@@ -400,6 +399,7 @@ int CMainProcess::TaskDispatch()
         }
 
     }
+
 
     // 对所有厅准备比对的开始比对
     len = vecCompareHall.size();
@@ -818,6 +818,7 @@ bool CMainProcess::GetCinemaInfo_DB()
     query.seekRow(0);
     m_strCity = query.getStringField("city");
     m_strCinemaName = query.getStringField("cinema_name");
+    loginfo("GetCinemaInfo_DB city:%s cinema name:%s!\n",m_strCity.c_str(),m_strCinemaName.c_str());
     return true;
 }
 
@@ -852,7 +853,7 @@ int CMainProcess::CreateTempletFeatrue()
     {
         ptrTempletInfo &task = m_lstCreateTempleTask.front();
 
-        TASK_ITEM * item = new TASK_ITEM;
+        TASK_ITEM  *item=NULL;
         NewTableItemSpace(&item);
 
         // 填充任务结构
@@ -889,7 +890,7 @@ int CMainProcess::CreateTempletFeatrue()
         m_TempletMgr.CreateTaskTemplet(item);
 
         DeleteItemSpace(&item);
-        delete item;
+
 
 
         m_mutxCreateTemple.EnterCS();
@@ -913,11 +914,8 @@ void CMainProcess::NewTableItemSpace(TASK_ITEM **task_item)
 {
     if(NULL==*task_item)
     {
-        return;
+        *task_item=(TASK_ITEM *)new TASK_ITEM;
     }
-
-    *task_item=(TASK_ITEM *)new TASK_ITEM;
-
 
     (*task_item)->id=new char[BUFF_SIZE_50];
     (*task_item)->uuid=new char[BUFF_SIZE_50];
@@ -1062,6 +1060,8 @@ void CMainProcess::DeleteItemSpace(TASK_ITEM **task_item)
         delete [] (*task_item)->featureFilePath;
         (*task_item)->featureFilePath=NULL;
     }
+
+    delete *task_item;
 
 }
 

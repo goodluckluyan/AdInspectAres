@@ -15,6 +15,7 @@
 #include "database/CppMySQL3DB.h"
 
 
+
 typedef struct _MatchItem
 {
     int nInspectIndex;
@@ -26,15 +27,9 @@ typedef struct _MatchItem
 typedef std::tr1::shared_ptr<_TEMPLET_ITEM> ptrTempletType;
 typedef struct _TempletMatch
 {
-    _TempletMatch()
-    {
-        ptrTemplet = NULL;
-        inspect_ts_start = 0;
-        inspect_ts_end = 0;
-        inspect_index_start = 0;
-        inspect_index_end  = 0;
-        showorder = 0;
-    }
+    _TempletMatch();
+
+    ~_TempletMatch();
 
     _TEMPLET_ITEM* ptrTemplet;      //模板
     std::vector<MatchItem> vecMatch;//匹配项
@@ -52,25 +47,8 @@ typedef struct _TempletMatch
 enum Range{NOTHING,MATCH,ALL,SUBAREA};
 typedef struct _SearchArea
 {
-   _SearchArea()
-   {
-       area = ALL;
-       ptrAVFrame = NULL;
-       bufsize = 0;
-       featrueNum = 0;
-       ptrfeature = NULL;
-       width_hr = 0;
-       height_hr = 0;
-
-   }
-
-   ~_SearchArea()
-   {
-       if(ptrfeature!=NULL)
-       {
-           delete[] ptrfeature;
-       }
-   }
+   _SearchArea();
+   ~_SearchArea();
    Range area;
    AV_FRAME_INFO * ptrAVFrame;
    unsigned char *ptrfeature;
@@ -159,6 +137,14 @@ private:
     MatchItem const _raw;
 };
 
+struct suspicious_show
+{
+    std::string adback;
+    std::string adprev;
+    unsigned int start;
+    unsigned int end;
+};
+
 
 class CompareEngine :public OS_Thread
 {
@@ -191,7 +177,7 @@ private:
     int Label_inspect(int start,int end,_TEMPLET_ITEM* lable);
 
     // 按模板统计结果并定位录播位置
-    int SummaryResultsAndLocatorPo();
+    int SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecss);
 
     // 保存比对成功的图片
     bool SaveInspectImage(TempletMatch &tm);
@@ -201,6 +187,10 @@ private:
 
     // 保存匹配记录
     bool InsertMatch_DB();
+
+
+    // 可疑播放入库
+    bool InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss);
 
 private:
     // 厅号
