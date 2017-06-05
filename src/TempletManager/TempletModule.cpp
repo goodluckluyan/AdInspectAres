@@ -108,16 +108,21 @@ int TempletManager::GetAllTaskTemplets(TASKS &ptasks)
 
 int TempletManager::DeleteTaskItems(TASKS *ptaskitems)
 {
-    int iRet = RET_SUCCESS;
-    ///TaskTable taskTable;
-    for(TASKS::iterator it = ptaskitems->begin(); it != ptaskitems->end(); it++)
-    {
-        TASK_ITEM *pItem = (TASK_ITEM *)(*it);
-        m_taskTable->DeleteItemSpace(&pItem);
-    }
-    ptaskitems->clear();
-
-    return iRet;
+	int iRet = RET_SUCCESS;
+	///TaskTable taskTable;
+	for(TASKS::iterator it = ptaskitems->begin(); it != ptaskitems->end(); it++)
+	{
+		TASK_ITEM *pItem = (TASK_ITEM *)(*it);
+		m_taskTable->DeleteItemSpace(&pItem);
+	}
+	ptaskitems->clear();
+	if(NULL != ptaskitems)
+	{
+		delete ptaskitems;
+		ptaskitems = NULL;
+		
+	}
+	return iRet;
 }
 
 int TempletManager::GetAllFeatures(FEATURES &pfeatures)
@@ -162,7 +167,7 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
 
         avformat_close_input(&pInputFormatContext);
         avformat_free_context(pInputFormatContext);
-        return -1;
+        return NO_OPEN_MP4_FILE;
     }
 
     // 取出文件流信息
@@ -179,7 +184,7 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
         avformat_close_input(&pInputFormatContext);
         avformat_free_context(pInputFormatContext);
 
-        return -1;
+        return CODEC_PARAMETER_ERROR;
     }
 
     //print media info
@@ -209,7 +214,7 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
 
         avformat_close_input(&pInputFormatContext);
         avformat_free_context(pInputFormatContext);
-        return -1;
+        return NO_VIDEO_STREAM;
     }
 
     // 得到视频流编码上下文的指针  ///pInputCodecContext 可以获取分辨率例如1920*1080,帧率等
@@ -229,7 +234,7 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
         ///
         avformat_close_input(&pInputFormatContext);
         avformat_free_context(pInputFormatContext);
-        return -1;
+        return NO_DECODE;
     }
 
     //打开解码器
@@ -244,7 +249,7 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
 
         avformat_close_input(&pInputFormatContext);
         avformat_free_context(pInputFormatContext);
-        return -1;
+        return DECODE_ERR;
     }
 
     ///bmp图片保存路径为输入值featureFilePath，例如：/home/zyh/mp4File/feature001
@@ -283,13 +288,22 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
     g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
     //////////////////////////////
 #endif
-    /// 插入任务表
-    m_taskTable->InsertTaskItem(task_item);
-    ///////////////记录日志////////////
-    sprintf(buff_temp,"InsertTaskItem suceed!!! Add Name:%s\n",task_item->fileName);
-    g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
-    //////////////////////////////////
-
+	/// 插入任务表	
+	iRet = m_taskTable->InsertTaskItem(task_item);
+	if(iRet ==0 )
+	{
+		///////////////记录日志////////////
+		sprintf(buff_temp,"InsertTaskItem suceed!!! Add Name:%s\n",task_item->fileName);
+		g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+		//////////////////////////////////
+	}
+	else
+	{
+		///////////////记录日志////////////
+		sprintf(buff_temp,"InsertTaskItem failed!!!\n");
+		g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+		//////////////////////////////////
+	}
 
     int len = 0;
     AVFrame *ptrOutFrame=NULL;
@@ -341,11 +355,15 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
     char feature_fullPath[255];
     memset(bmp_fullPath,0,255);
     memset(feature_fullPath,0,255);
+    if(!strcmp(task_item->type,"sift"))
+    {
+        videoCompareModule.InitModule(0);
+    }
+    else
+    {
+        videoCompareModule.InitModule(1);
+    }
 
-//    AVPacket InPack;
-//    av_init_packet(&InPack);
-//    InPack.data = NULL;
-//    InPack.size = 0;
 
     while(1)
     {
@@ -402,47 +420,62 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
                     g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
                     ///////////////////////////////////////
 
-                    ///增加生成特征文件,调用xiao函数
-                    iRet=videoCompareModule.ExportFeature(bmp_fullPath, feature_fullPath,featureNumber);
-                    //if(iRet !=0)
-                    //{
-                    //	printf("ExportFeature failed!!!\n");
-                    //	return -1;
-                    //}
+				   ///增加生成特征文件,调用xiao函数  ///出现内存泄漏 
+					if(!strcmp(task_item->type,"sift"))
+					{
+						////特征全路径featureFilePath+当前帧号
+						sprintf(feature_fullPath,"%s/%d.sift",task_item->featureFilePath,nFrame);
+						/////////////////////////////////////////////////////////////
+						/// 初始化视频比对模块的内置算法，目前支持Sift和Surf两种视频比对算法。
+						/// videoCompareType，输入，设置内置算法的类型:0表示Sift算法，1表示Surf算法。
+						/// 在调用视频比对模块前，如果没有调用该函数，会默认使用Sift算法。
+//						videoCompareModule.InitModule(0);
+						iRet=videoCompareModule.ExportFeature(bmp_fullPath, feature_fullPath,featureNumber);
 
-                    /////////////////记录日志////////////////
-                    //sprintf(buff_temp,"ExportFeature::featureNumber:%d\n",featureNumber);
-                    //g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
-                    /////////////////////////////////////////
+					}
+					else if(!strcmp(task_item->type,"surf"))
+					{
+						sprintf(feature_fullPath,"%s/%d.surf",task_item->featureFilePath,nFrame);
+//						videoCompareModule.InitModule(1);
+						iRet=videoCompareModule.ExportFeature(bmp_fullPath, feature_fullPath,featureNumber);
+					}
+					else
+					{
+                        return TEMPLETYPE_ERR;
+						///////////////记录日志////////////////
+						sprintf(buff_temp,"Type input error!!! Type must be sift or surf, type:%s\n",task_item->type);
+						g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+						///////////////////////////////////////
 
-                    //////插入记录项,将每张bmp图片信息 插入特征表
-                    FEATURE_ITEM *item = NULL;
-                    /// 申请的记录项内存空间，与DeleteSpaceItem()函数成对使用
-                    m_featureTable->NewTableItemSpace(&item);
-                    sprintf(item->id,"");
-                    sprintf(item->uuid,"%s",task_item->uuid);  ////广告uuid
-                    sprintf(item->ad_fileName,"%s",task_item->fileName);  ///广告文件名
-                    sprintf(item->bmp_fileName,"%d.bmp",nFrame);   ///bmp图片文件名
-                    if(featureNumber == 0)
-                    {
-                        sprintf(item->fileName,"");       ///特征文件名
-                        sprintf(item->filePath,""); ///特征文件路径
-                        sprintf(item->fullFilePath,"");  ////特征全路径
-                    }
-                    else
-                    {
-                        sprintf(item->fileName,"%d.txt",nFrame);       ///特征文件名
-                        sprintf(item->filePath,"%s",task_item->featureFilePath); ///特征文件路径
-                        sprintf(item->fullFilePath,"%s",feature_fullPath);  ////特征全路径
-                    }
-
-                    sprintf(item->bmp_fullFilePath,"%s",bmp_fullPath);   ///图片全路径
-                    sprintf(item->picture_order,"%d",nFrame);    ///图片序号
-                    sprintf(item->quantity,"%d",featureNumber);  ///特征数量
-                    frequency =atoi(task_item->frequency);
-                    duration = atoi(task_item->realDuration);
-                    sprintf(item->bmp_quantity,"%d",frequency * duration);   ///图片数量
-                    m_featureTable->InsertItem(item);
+					}
+					//////插入记录项,将每张bmp图片信息 插入特征表
+					FEATURE_ITEM *item = NULL;
+					/// 申请的记录项内存空间，与DeleteSpaceItem()函数成对使用
+					m_featureTable->NewTableItemSpace(&item);
+					sprintf(item->id,"");
+					sprintf(item->uuid,"%s",task_item->uuid);  ////广告uuid
+					sprintf(item->ad_fileName,"%s",task_item->fileName);  ///广告文件名
+					sprintf(item->bmp_fileName,"%d.bmp",nFrame);   ///bmp图片文件名
+					if(featureNumber == 0)
+					{
+						sprintf(item->fileName,"");       ///特征文件名
+						sprintf(item->filePath,""); ///特征文件路径
+						sprintf(item->fullFilePath,"");  ////特征全路径
+					}
+					else
+					{
+						sprintf(item->fileName,"%d.txt",nFrame);       ///特征文件名
+						sprintf(item->filePath,"%s",task_item->featureFilePath); ///特征文件路径
+						sprintf(item->fullFilePath,"%s",feature_fullPath);  ////特征全路径
+					}
+				
+					sprintf(item->bmp_fullFilePath,"%s",bmp_fullPath);   ///图片全路径
+					sprintf(item->picture_order,"%d",nFrame);    ///图片序号
+					sprintf(item->quantity,"%d",featureNumber);  ///特征数量
+					frequency =atoi(task_item->frequency);
+					duration = atoi(task_item->realDuration);
+					sprintf(item->bmp_quantity,"%d",frequency * duration);   ///图片数量
+					m_featureTable->InsertItem(item);  
 
                     ////释放申请的内存空间，与NewUserItemTbl()函数成对使用
                     m_featureTable->DeleteItemSpace(&item);
@@ -606,36 +639,41 @@ void TempletManager::NewPictureItemSpace(PICTUR_ITEM **pictureItem,int quantity)
 
 void TempletManager::DeletePictureSpace(PICTUR_ITEM **pictureItem,int quantity)
 {
-    if(NULL==(*pictureItem))
-    {
-        return;
-    }
-    ClearPictureItemSpace((*pictureItem),quantity);
-    if(NULL!=(*pictureItem)->addr)
-    {
-        delete [] (*pictureItem)->addr;
-        (*pictureItem)->addr=NULL;
-    }
-    if(NULL!=(*pictureItem)->picturePath)
-    {
-        delete [] (*pictureItem)->picturePath;
-        (*pictureItem)->picturePath=NULL;
-    }
-    if(NULL!=(*pictureItem)->pictureFullFilePath)
-    {
-        delete [] (*pictureItem)->pictureFullFilePath;
-        (*pictureItem)->pictureFullFilePath=NULL;
-    }
-    if(NULL!=(*pictureItem)->write_file)
-    {
-        delete [] (*pictureItem)->write_file;
-        (*pictureItem)->write_file=NULL;
-    }
-
+	if(NULL==(*pictureItem))
+	{
+		return;
+	}
+	ClearPictureItemSpace((*pictureItem),quantity);
+	if(NULL!=(*pictureItem)->addr)
+	{
+		delete [] (*pictureItem)->addr;
+		(*pictureItem)->addr=NULL;
+	}
+	if(NULL!=(*pictureItem)->picturePath)
+	{
+		delete [] (*pictureItem)->picturePath;
+		(*pictureItem)->picturePath=NULL;
+	}
+	if(NULL!=(*pictureItem)->pictureFullFilePath)
+	{
+		delete [] (*pictureItem)->pictureFullFilePath;
+		(*pictureItem)->pictureFullFilePath=NULL;
+	}
+	if(NULL!=(*pictureItem)->write_file)
+	{
+		delete [] (*pictureItem)->write_file;
+		(*pictureItem)->write_file=NULL;
+	}
+	if(NULL != pictureItem)
+	{
+		delete *pictureItem;
+		*pictureItem = NULL;
+		
+	}
 }
 
 
-int TempletManager::GetAllTemplets(TEMPLET_LIST &templet_list)
+int TempletManager::GetAllTemplets(std::string &inspecttm,TEMPLET_LIST &templet_list)
 {
     int iRet=RET_SUCCESS;
 
@@ -650,7 +688,7 @@ int TempletManager::GetAllTemplets(TEMPLET_LIST &templet_list)
     TASKS tast_items;
 
     ///iRet = my.GetAllItems(&tast_items);
-    iRet = my.GetAllValidItems(&tast_items); ///获取有效期内的所有任务
+    iRet = my.GetAllValidItems(inspecttm,&tast_items); ///获取有效期内的所有任务
     if( DB_SUCCESS != iRet)
     {
         printf("GetAllItems failed! iRet=%d\n",iRet);
@@ -714,6 +752,9 @@ int TempletManager::GetAllTemplets(TEMPLET_LIST &templet_list)
             templet_item->picture_quantity = duration * frequency;
             ///sprintf(templet_item->ad_order,"",pTaskItem->ad_order);
             templet_item->ad_order = atoi(pTaskItem->ad_order);
+            templet_item->featrue_type = new char[BUFF_SIZE_20];
+            sprintf(templet_item->featrue_type,"%s",pTaskItem->type);
+
 #if 1
             featureObject.GetItemByUuid(&feature_items,pTaskItem->uuid);
             if( DB_SUCCESS != iRet)
@@ -885,10 +926,46 @@ int TempletManager::DeleteTemplet_list(TEMPLET_LIST *pTemplet_list)
                 (*itTemplet)->dstVideoWidth=NULL;
             }
 
+            if(NULL != (*itTemplet)->featrue_type)
+            {
+                delete [] (*itTemplet)->featrue_type;
+                (*itTemplet)->featrue_type=NULL;
+            }
+
         }
     }
     pTemplet_list->clear();
 
 
     return iRet;
+}
+
+int TempletManager::DeleteTempletByUuid(char *uuid)
+{
+	int iRet=RET_SUCCESS;
+	char pstrcommand[255];
+	CFileManager fileManager;
+	TASK_ITEM *item = NULL;
+	
+	m_taskTable->NewTableItemSpace(&item);
+
+    int query_ret = m_taskTable->GetTaskItemByUuid(item,uuid);
+    if(query_ret!=DB_SUCCESS)
+    {
+        return query_ret;
+    }
+
+	///删除特征文件和bmp图片
+	printf("featureFilePath:%s\n",item->featureFilePath);
+	sprintf(pstrcommand,"rm -rf %s",item->featureFilePath);
+	fileManager.DeleteDirOrFile(pstrcommand);
+
+	m_taskTable->DeleteTaskItemByUuid(uuid);
+
+	m_taskTable->DeleteItemSpace(&item);
+
+	///删除特征表
+	m_featureTable->DeleteItemByUuid(uuid);
+
+	return iRet;
 }

@@ -5,6 +5,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <algorithm>
 #include "C_Para.h"
 #include "ec_config.h"
 #include "log/MyLogger.h"
@@ -21,6 +22,7 @@ C_Para::C_Para()
 {
     m_WeightThreshold = 0.1;
     m_IsSpeedPriority = false;
+    m_InvalidateShowThresholdSec = 10;
 	pthread_rwlock_init(&m_rwlk_main,NULL);
 
 }
@@ -336,8 +338,29 @@ int C_Para::ReadPara()
     m_IsSpeedPriority = atoi(a)==1?true:false;
     loginfo("reading config ,IsSpeedPriority:%s",m_IsSpeedPriority?"Yes":"No");
 
-	return 0;
+    memset(a,0,64);
+    iResult = config.readvalue("PARA","InvalidateShowThresholdSec",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    m_InvalidateShowThresholdSec = atoi(a);
+    loginfo("reading config ,InvalidateShowThresholdSec:%d",m_InvalidateShowThresholdSec);
 
+
+    memset(a,0,64);
+    iResult = config.readvalue("PARA","FeatrueType",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    std::string tmpstr = a;
+    std::transform(tmpstr.begin(),tmpstr.end(),tmpstr.begin(),std::towlower);
+    m_FeatrueType = tmpstr;
+    loginfo("reading config ,m_FeatrueType:%s",m_FeatrueType.c_str());
+
+
+	return 0;
 }
 
 

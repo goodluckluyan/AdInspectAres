@@ -21,3 +21,8 @@
 
 int mons__AddInspectModule(std::string id,std::string OrderNO,std::string AdName,int CinemaNum,std::string start,
                            std::string end,int ShowOder,int Type,std::string ModulePath,int &ret );
+
+
+int mons__DelInspectModule(std::string uuid,int &ret );
+
+

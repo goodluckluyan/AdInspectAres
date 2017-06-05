@@ -1108,4 +1108,3 @@ int ec_config::trim( const char *pbuf,char *pdest,int ilenmax )
 
 	return ilen;
 }
- 

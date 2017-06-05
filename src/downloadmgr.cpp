@@ -93,7 +93,6 @@ int CDownLoadMgr::Init(int HallID, int CameraPos, DBLoginInfo &DBinfo, std::stri
     m_startsec = para->m_ShowingJobStartSec;
     m_endsec = para->m_ShowingJobEndSec;
 
-
 }
 
 /*******************************************************************************
@@ -172,8 +171,8 @@ bool CDownLoadMgr::AddDownTask()
     C_Time t2;
     std::string curday = std::string(str) + " 00:00:00";
     t2.setTimeStr(curday);
-    int iStarTime = t2.getTimeInt() + m_startsec;
-    int iEndTime = t2.getTimeInt() + m_endsec;
+    unsigned int iStarTime = t2.getTimeInt() + m_startsec;
+    unsigned int iEndTime = t2.getTimeInt() + m_endsec;
 
 
     // 判断是否还是当天
@@ -181,7 +180,7 @@ bool CDownLoadMgr::AddDownTask()
     last.setTimeInt(m_lastsec);
     if(last.getDay()!= localtime(&iCurTime)->tm_mday)
     {
-        m_lastsec = iStarTime-1;
+        m_lastsec = iStarTime;
     }
 
 
@@ -216,10 +215,10 @@ bool CDownLoadMgr::AddDownTask()
 
 
     AddDownTask(item);
-    m_lastsec = item.start + item.duration;
+    m_lastsec = item.start + item.duration + 1;
 
-    loginfo("Add last time period  download task (%ud-%ud)", static_cast<unsigned int>(item.start),
-            static_cast<unsigned int>(item.duration));
+    loginfo("Add last time period  download task (s:%u-e:%u ss:%u-se:%u)", static_cast<unsigned int>(item.start),
+            static_cast<unsigned int>(item.duration),iStarTime,iEndTime);
 }
 
 /*******************************************************************************
@@ -290,6 +289,7 @@ void CDownLoadMgr::ProcessDownTask()
 
         // 轮询下载是否完成
         bool bComplete = false;
+        int nWaitSec = 0;
         while(1)
         {
             if(QueryISDownDone_DB(downloadid))
@@ -303,22 +303,34 @@ void CDownLoadMgr::ProcessDownTask()
                 return ;
             }
             ::sleep(1);
+            nWaitSec++;
+
+            if(nWaitSec>=1200)
+            {
+                logerror("execute result download task timeout(%s-%s %s)",
+                         strStart.c_str() ,strEnd.c_str(),task.savepath.c_str());
+                break;
+            }
         }
 
-        // 完成后记录到下载完成表
-        InsertDownTask_DB(taskid,m_HallID,m_CameraPos,strStart,strEnd,filepath,true);
-
-        // 完成后通过回调函数通知主模块
-        if(bComplete && m_pDownloadCompeteFun != NULL)
+        if(bComplete)
         {
+            // 完成后记录到下载完成表
+            InsertDownTask_DB(taskid,m_HallID,m_CameraPos,strStart,strEnd,filepath,true);
 
-            m_pDownloadCompeteFun(m_Userdata,m_HallID,m_CameraPos,task.start,
-                                  task.duration,filepath,true);
+            // 完成后通过回调函数通知主模块
+            if(bComplete && m_pDownloadCompeteFun != NULL)
+            {
+
+                m_pDownloadCompeteFun(m_Userdata,m_HallID,m_CameraPos,task.start,
+                                      task.duration,filepath,true);
+            }
+
+            pthread_mutex_lock(&m_mutx);
+            m_lstSampleDownloadTask.pop_front();
+            pthread_mutex_unlock(&m_mutx);
         }
 
-        pthread_mutex_lock(&m_mutx);
-        m_lstSampleDownloadTask.pop_front();
-        pthread_mutex_unlock(&m_mutx);
 
     }
     else if(m_lstDownloadTask.size()!=0)
@@ -359,6 +371,10 @@ void CDownLoadMgr::ProcessDownTask()
                     m_pDownloadCompeteFun(m_Userdata,m_HallID,m_CameraPos,task.start,
                                           task.duration,filepath,false);
                 }
+
+                pthread_mutex_lock(&m_mutx);
+                m_lstDownloadTask.pop_front();
+                pthread_mutex_unlock(&m_mutx);
             }
         }
         else
@@ -391,6 +407,7 @@ void CDownLoadMgr::ProcessDownTask()
 
             // 轮询下载是否完成
             bool bComplete = false;
+            int nWaitSec = 0;
             while(1)
             {
                 if(QueryISDownDone_DB(downloadid))
@@ -404,24 +421,34 @@ void CDownLoadMgr::ProcessDownTask()
                     return ;
                 }
                 ::sleep(1);
+                nWaitSec++;
+                if(nWaitSec>=1200)
+                {
+                    logerror("execute download task timeout(%s-%s %s)",
+                             strStart.c_str() ,strEnd.c_str(),task.savepath.c_str());
+                    break;
+                }
             }
 
-            // 完成后记录到下载完成表
-            InsertDownTask_DB(taskid,m_HallID,m_CameraPos,strStart,strEnd,filepath);
-
-            // 完成后通过回调函数通知主模块
-            if(bComplete && m_pDownloadCompeteFun != NULL)
+            if(bComplete)
             {
+                // 完成后记录到下载完成表
+                InsertDownTask_DB(taskid,m_HallID,m_CameraPos,strStart,strEnd,filepath);
 
-                m_pDownloadCompeteFun(m_Userdata,m_HallID,m_CameraPos,task.start,
-                                      task.duration,filepath,false);
+                // 完成后通过回调函数通知主模块
+                if(bComplete && m_pDownloadCompeteFun != NULL)
+                {
+
+                    m_pDownloadCompeteFun(m_Userdata,m_HallID,m_CameraPos,task.start,
+                                          task.duration,filepath,false);
+                }
+
+                pthread_mutex_lock(&m_mutx);
+                m_lstDownloadTask.pop_front();
+                pthread_mutex_unlock(&m_mutx);
             }
 
         }
-
-        pthread_mutex_lock(&m_mutx);
-        m_lstDownloadTask.pop_front();
-        pthread_mutex_unlock(&m_mutx);
     }
 
 }

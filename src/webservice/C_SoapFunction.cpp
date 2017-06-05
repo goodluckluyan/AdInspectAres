@@ -19,3 +19,9 @@ int mons__AddInspectModule(struct soap* cSoap,std::string id,std::string OrderNO
 }
 
 
+
+int mons__DelInspectModule(struct soap* cSoap,std::string uuid,int &ret )
+{
+    ret = ptr_MainProcess->WS_DelInspectModule(uuid);
+    return 0;
+}

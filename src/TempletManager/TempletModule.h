@@ -50,10 +50,13 @@ public:
 	int CreateTaskTemplet(TASK_ITEM *task_item);
 
 	///获取任务表中在有效期内的所有模板信息,获取后要调用DeleteTemplet_list释放内存
-	int GetAllTemplets(TEMPLET_LIST &templet_list);
+    int GetAllTemplets(std::string &inspecttm,TEMPLET_LIST &templet_list);
 
 	///释放Templet_list容器内存
 	int DeleteTemplet_list(TEMPLET_LIST *pTemplet_list);
+
+	///释放Templet_list容器内存
+	int DeleteTempletByUuid(char *uuid);
 public:
 
 	/// 清空pictureItem结构体中各信息
@@ -89,6 +92,7 @@ public:
 public:
 	TaskTable *m_taskTable;
 	FeatureTable *m_featureTable;
+
 	///TEMPLET_LIST m_templet_list;
 	///FEATURES m_freatureItems;
 	///VideoCompareModule *videoCompareModule;

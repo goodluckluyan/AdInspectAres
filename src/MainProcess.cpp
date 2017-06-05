@@ -141,7 +141,7 @@ bool CMainProcess::Init()
     for(int i=0;i<hallcnt;i++)
     {
         int hallno = allhall[i];
-        ptrCompareEngine ptr = std::tr1::shared_ptr<CompareEngine>(new CompareEngine(hallno,&m_TempletMgr,m_strCity,m_strCinemaName));
+        ptrCompareEngine ptr = std::tr1::shared_ptr<CompareEngine>(new CompareEngine(hallno,&m_TempletMgr,m_strCity,m_strCinemaName,&m_mutxDelTemplet));
         CompareEngine::SetBCFun(this,BC_CompareComplete);
         ptr->Init(para->m_DB_IP,para->m_DB_User,para->m_DB_Passwd,
                   "oristarmr",para->m_DB_Port,para->m_CompareRect);
@@ -411,7 +411,7 @@ int CMainProcess::TaskDispatch()
         {
             C_GuardCS guard(&m_mutxVideoFileMap);
             ptrCompareEngine& ptr = fit->second;
-            if(ptr->Compare(m_mapCurTaskFile[hallid]->UUID,
+            if(ptr->Compare(m_mapCurTaskFile[hallid]->UUID,m_mapCurTaskFile[hallid]->Start,
                             static_cast<FrameBufferLoop*>(m_mapCurTaskFile[hallid]->ptrBufferLoop))==0)
             {
                 m_mapCurTaskFile[hallid]->Status=COMPARE;
@@ -495,6 +495,26 @@ void CMainProcess::Print(int enType)
     default:
         break;
     }
+}
+
+/*******************************************************************************
+    * 函数名称：	WS_DelInspectModule
+    * 功能描述：	webserivce 接口执行函数，删除广告模板
+    * 输入参数：
+    * 输出参数：
+    * 返 回 值：
+    * 其它说明：
+    * 修改日期		修改人	      修改内容
+    * ------------------------------------------------------------------------------
+    *  2017-04-29 	 卢岩	      创建
+    *******************************************************************************/
+int CMainProcess::WS_DelInspectModule(std::string &uuid)
+{
+   m_mutxDelTemplet.EnterCS();
+   int iRet = m_TempletMgr.DeleteTempletByUuid(const_cast<char*>(uuid.c_str()));
+   m_mutxDelTemplet.LeaveCS();
+
+   return iRet ;
 }
 
 
@@ -657,8 +677,6 @@ int CMainProcess::BC_CompareComplete(void *ptr,
             loginfo("Compare complete,Downlaod result vedio file(start:%d duration:%d path:%s) ",
                     dlii.start,dlii.duration,std::string(dlii.savepath+"/"+ dlii.filename).c_str());
         }
-
-
     }
     pthis->CompareComplete(taskid);
     return 0;
@@ -669,7 +687,6 @@ int CMainProcess::CompareComplete(std::string &taskid)
 {
     std::string hallid = taskid.substr(0,taskid.find("_"));
     int hallnum = atoi(hallid.c_str());
-
 
     ptrVideoFile tmpCurVideoFile;
     {
@@ -880,7 +897,17 @@ int CMainProcess::CreateTempletFeatrue()
 
         strcpy(item->hall_id,"0");
         sprintf(item->frequency,"%d",para->m_Decode_rate);
-        strcpy(item->type,"sift");
+
+        // 特征类型
+        std::string strType = para->m_FeatrueType;
+        if(strType=="sift")
+        {
+            strcpy(item->type,"sift");
+        }
+        else
+        {
+             strcpy(item->type,"surf");
+        }
         sprintf(item->dstVideoWidth,"%d",para->m_Decode_width);
         sprintf(item->dstVideoHeight,"%d",para->m_Decode_height);
         sprintf(item->ad_order,"%d",task->ShowOder);

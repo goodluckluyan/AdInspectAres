@@ -1,5 +1,5 @@
 ﻿/////////////////////////////////////////////////////////////
-/// XLQ:对Sift算法接口的封装
+/// XLQ:对Sift和Surf算法接口的封装
 /////////////////////////////////////////////////////////////
 #ifndef _VIDEO_COMPARE_MODULE_H_
 #define _VIDEO_COMPARE_MODULE_H_
@@ -11,7 +11,14 @@ public:
     ~VideoCompareModule();
 
     /////////////////////////////////////////////////////////////
-    /// 计算一段RGB像素值缓存的特征值，并将特征值保存在本地文件中。
+    /// 初始化视频比对模块的内置算法，目前支持Sift和Surf两种视频比对算法。
+    /// videoCompareType，输入，设置内置算法的类型:0表示Sift算法，1表示Surf算法。
+    /// 在调用视频比对模块前，如果没有调用该函数，会默认使用Sift算法。
+    int InitModule(int videoCompareType);
+
+
+    /////////////////////////////////////////////////////////////
+    /// 计算一段RGB像素值缓存的特征值，不需要将特征值保存在本地文件中。
     /// rgbBufferData，输入，要进行特征值计算的RGB像素值缓存的首地址，
     /// rgbBufferLength，输入，要进行特征值计算的RGB像素值缓存的长度，
     /// widthSize，输入，要进行特征值计算的RGB像素值缓存的图片宽度，
@@ -53,7 +60,7 @@ public:
     /// featureBufferData，输出，存储了特征值数据的缓存首地址。
     /// 注意:存储特征值数据的缓存需要在调用该函数前预先建立好，
     /// 建立时特征值数据的缓存长度不是固定的，其大小是由对应图片中边缘数量的多少决定的，
-    /// 因此应根据对应图片的实际特征值数来建立缓存。一般1个特征值需要占用不大于500字节的空间。
+    /// 因此应根据对应图片的实际特征值数来建立缓存。一般1个特征值需要占用不大于1024字节的空间。
     /// featureBufferLength，输出，存储了特征值数据的缓存长度。
     int ImportFeature(const char *featureFileName,
         int &featureNumber,
@@ -74,6 +81,8 @@ public:
     /// heightSize2，输入，第二块特征值数据对应的图像宽度，
     /// featureNumber2，输入，第二块特征值数据的特征值数量。
     /// matchNumber，输出，返回的两块特征值数据的匹配特征值数量。
+    /// 【说明】:上层程序通过判断匹配特征值的数量与原始图片特征值数量的百分比
+    /// （比如是否大于等于10%），来判断这两张图片是不是同一张。
     int CompareFeature(const char *featureBufferData1, 
         unsigned int &featureBufferLength1,
         unsigned int &widthSize1,
@@ -112,9 +121,12 @@ public:
 protected:
 
 private:
-
+    /// XLQ:当前的特征值缓存及长度。
     char *currentFeatureBufferData;
     unsigned int currentFeatureBufferLength;
+
+    /// XLQ:当前使用的内置算法类型，0为Sift算法，1为Surf算法。
+    int currentVideoCompareType;
 
     //unsigned int currentTime;
 

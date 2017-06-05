@@ -36,15 +36,24 @@ using namespace std;
 #define BUFF_SIZE_1024	1024
 #define BUFF_SIZE_2048  2048
 #define BUFF_SIZE_4096	4096
-#define FEATURE_SIZE 500    ///特征地址分配大小根据特征数量*500
+#define FEATURE_SIZE 1024    ///特征地址分配大小根据特征数量*500
 
-#define PARAMETER_ERROR            10030         /// 输入参数错误
-#define RET_SUCCESS                0           ///	操作成功
+#define RET_SUCCESS                 0           ///	操作成功
+#define PARAMETER_ERROR             41200001    /// 输入参数错误
+#define FRAMERATE_ZERO				41200002	///帧率为零
+#define NO_VIDEO_STREAM				41200003	///找不到视频流///Can't find video stream
+#define NO_OPEN_MP4_FILE			41200004	///Can't open mp4 file.
+#define CODEC_PARAMETER_ERROR		41200005	///Can't find suitable codec parameters
+#define NO_DECODE					41200006	///can't decode.
+#define DECODE_ERR					41200007	///Decode err.
+#define TEMPLETYPE_ERR			    41200008	///type input error.
+
+///数据库操作
 #define DB_SUCCESS								0	///	数据库操作成功
-#define DB_PARAMETER_ERROR						1	/// 输入参数错误
+#define DB_PARAMETER_ERROR						41200101	/// 输入参数错误
+#define DB_COMMAND_QUERY_ERROR					41200102	///	发送数据库查询命令失败
+#define DB_CONNECTED_ERROR						41200103	///	连接数据库失败
 
-#define DB_COMMAND_QUERY_ERROR					1004	///	发送数据库查询命令失败
-#define DB_CONNECTED_ERROR						1002	///	连接数据库失败
 
 
 typedef struct _PICTUR_ITEM{
@@ -61,13 +70,14 @@ typedef vector<PICTUR_ITEM *>PICTURE_LIST;
 
 typedef struct _TEMPLET_ITEM{
 	
-    char *uuid;           ///订单号
-    char *ad_fileName;    ///广告名称
-	int picture_quantity; ///图片数量
-	char *dstVideoWidth;        ///dstVideoWidth   //必填输入值
-	char *dstVideoHeight;       ///dstVideoHeight   //必填输入值
-	///add 
-	int ad_order;        ///广告序号
+	char *uuid;				///订单号 
+	char *ad_fileName;		///广告名称
+	int picture_quantity;	///图片数量
+	char *dstVideoWidth;    ///输出视频宽度   //必填输入值
+	char *dstVideoHeight;   ///输出视频高度   //必填输入值 
+	int ad_order;			///广告序号
+    char* featrue_type;       ///特征类型
+	
 	PICTURE_LIST picture_list;
 
 }TEMPLET_ITEM;

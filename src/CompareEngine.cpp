@@ -27,7 +27,7 @@ _TempletMatch::_TempletMatch()
 
 _TempletMatch::~_TempletMatch()
 {
-   logdebug("delete TempletMatch");
+//   logdebug("delete TempletMatch");
 }
 
 _SearchArea::_SearchArea()
@@ -47,12 +47,12 @@ _SearchArea::~_SearchArea()
     if(ptrfeature!=NULL)
     {
         delete[] ptrfeature;
-        logdebug("delete [] ptrfeature");
+//        logdebug("delete [] ptrfeature");
     }
 }
 
 CompareEngine::CompareEngine(int hallid,TempletManager *ptrTempletMgr,
-                             std::string city,std::string cinema_name)
+                             std::string city,std::string cinema_name,C_CS *pCS)
 {
     m_hallid = hallid;
     m_ptrTempletMgr = ptrTempletMgr;
@@ -60,6 +60,7 @@ CompareEngine::CompareEngine(int hallid,TempletManager *ptrTempletMgr,
     m_threshold = 0.1;
     m_City = city;
     m_CinemaName = cinema_name;
+    m_pTempletMgrMutx = pCS;
 }
 
 CompareEngine::~CompareEngine()
@@ -102,13 +103,23 @@ int CompareEngine::Init(std::string &dbip,std::string &dbuser,std::string &passw
                         int port,C_Para::Rect &rect)
 {
 
-    m_threshold = C_Para::GetInstance()->m_WeightThreshold;
+    C_Para *para = C_Para::GetInstance();
+    m_threshold = para->m_WeightThreshold;
     m_rect = rect;
     m_strDB_IP=dbip;
     m_strDB_User=dbuser;
     m_strPasswd=passwd;
     m_strDB_name=dbname;
     m_nPort = port;
+
+    if(para->m_FeatrueType=="sift")
+    {
+        m_featrueExtract.InitModule(0);
+    }
+    else
+    {
+        m_featrueExtract.InitModule(1);
+    }
 
 
     return 0;
@@ -126,7 +137,7 @@ int CompareEngine::Init(std::string &dbip,std::string &dbuser,std::string &passw
 * ------------------------------------------------------------------------------
 * 2017-04-29 	卢岩	      创建
 *******************************************************************************/
-int CompareEngine::Compare(std::string &taskid,FrameBufferLoop *fbl)
+int CompareEngine::Compare(std::string &taskid,time_t tm,FrameBufferLoop *fbl)
 {
     if(m_ptrTempletMgr == NULL)
     {
@@ -135,6 +146,7 @@ int CompareEngine::Compare(std::string &taskid,FrameBufferLoop *fbl)
     OS_Thread::Join(this);
     CreateSearchArea(fbl);
     m_curtaskid = taskid;
+    m_curtask_start_tm = tm;
     Run();
     return 0;
 }
@@ -181,7 +193,16 @@ int CompareEngine::CreateSearchArea(FrameBufferLoop *fbl)
 *******************************************************************************/
 int CompareEngine::Routine()
 {
-    m_ptrTempletMgr->GetAllTemplets(m_rawTemplet);
+
+    C_Time tasktm;
+    tasktm.setTimeInt(m_curtask_start_tm);
+
+    std::string strCurTaskTm;
+    tasktm.getTimeStr(strCurTaskTm);
+    m_pTempletMgrMutx->EnterCS();
+    m_ptrTempletMgr->GetAllTemplets(strCurTaskTm,m_rawTemplet);
+    m_pTempletMgrMutx->LeaveCS();
+
     if(m_rawTemplet.size()==0)
     {
         return 0;
@@ -197,14 +218,29 @@ int CompareEngine::Routine()
     for(int i = 0 ;i < m_rawTemplet.size();i++)
     {
         TEMPLET_ITEM * ptr = m_rawTemplet[i];
+
+        std::string tmpType = ptr->featrue_type;
+        std::transform(tmpType.begin(),tmpType.end(),tmpType.begin(),std::towlower);
+        if(para->m_FeatrueType!=tmpType)
+        {
+            logerror("Featrue type not match config file:%s<->%s(%s) templet type:%s,so this templet ignored",
+                     para->m_FeatrueType.c_str(),ptr->ad_fileName,ptr->uuid,tmpType.c_str());
+            continue;
+        }
+
         int framecnt = ptr->picture_list.size();
         nPicSum += framecnt;
         TempletMatch tm;
         tm.ptrTemplet = ptr;
-//      std::sort(ptr->picture_list.begin(),ptr->picture_list.end(),comparepic);
-        std::sort(ptr->picture_list.begin(),ptr->picture_list.begin()+framecnt/2,ComparePic());
-        std::sort(ptr->picture_list.begin()+framecnt/2,ptr->picture_list.end(),ComparePic());
 
+//      std::sort(ptr->picture_list.begin(),ptr->picture_list.begin()+framecnt/3,ComparePic());
+//      std::sort(ptr->picture_list.begin()+framecnt/3,ptr->picture_list.begin()+2*framecnt/3,ComparePic());
+//      std::sort(ptr->picture_list.begin()+2*framecnt/3,ptr->picture_list.end(),ComparePic());
+
+        std::sort(ptr->picture_list.begin(),ptr->picture_list.begin()+framecnt/4,ComparePic());
+        std::sort(ptr->picture_list.begin()+framecnt/4,ptr->picture_list.begin()+framecnt/2,ComparePic());
+        std::sort(ptr->picture_list.begin()+framecnt/2,ptr->picture_list.begin()+3*framecnt/4,ComparePic());
+        std::sort(ptr->picture_list.begin()+3*framecnt/4,ptr->picture_list.end(),ComparePic());
 
         PICTURE_LIST::iterator picit = ptr->picture_list.begin();
         for(;picit != ptr->picture_list.end();picit++)
@@ -464,19 +500,50 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
             if(bSpeedPriority)
             {
                 // 获取前半段和后半段的最大和次大值
-                int comparecnt = 2;
-                PICTURE_LIST::iterator lit = tm.ptrTemplet->picture_list.begin();
+                int comparecnt = 1;
                 int nFrameCnt = tm.ptrTemplet->picture_list.size();
-                PICTURE_LIST::iterator olit = tm.ptrTemplet->picture_list.begin()+nFrameCnt/2;
+//                PICTURE_LIST::iterator lit = tm.ptrTemplet->picture_list.begin();
+//                PICTURE_LIST::iterator olit = tm.ptrTemplet->picture_list.begin()+nFrameCnt/3;
+//                PICTURE_LIST::iterator tlit = tm.ptrTemplet->picture_list.begin()+2*nFrameCnt/3;
+//                for(int i = 0;lit != olit && i<comparecnt ;i++,lit++)
+//                {
+//                    lsCompared.push_back(*lit);
+//                }
+
+//                for(int i = 0;olit != tlit && i<comparecnt ;i++,olit++)
+//                {
+//                    lsCompared.push_back(*olit);
+//                }
+
+//                for(int i = 0;tlit != tm.ptrTemplet->picture_list.end() && i<comparecnt ;i++,olit++)
+//                {
+//                    lsCompared.push_back(*olit);
+//                }
+
+                PICTURE_LIST::iterator lit =  tm.ptrTemplet->picture_list.begin();
+                PICTURE_LIST::iterator olit = tm.ptrTemplet->picture_list.begin()+nFrameCnt/4;
+                PICTURE_LIST::iterator tlit = tm.ptrTemplet->picture_list.begin()+nFrameCnt/2;
+                PICTURE_LIST::iterator qlit = tm.ptrTemplet->picture_list.begin()+3*nFrameCnt/4;
                 for(int i = 0;lit != olit && i<comparecnt ;i++,lit++)
                 {
                     lsCompared.push_back(*lit);
                 }
 
-                for(int i = 0;olit != tm.ptrTemplet->picture_list.end() && i<comparecnt ;i++,olit++)
+                for(int i = 0;olit != tlit && i<comparecnt ;i++,olit++)
                 {
                     lsCompared.push_back(*olit);
                 }
+
+                for(int i = 0;tlit != qlit && i<comparecnt ;i++,olit++)
+                {
+                    lsCompared.push_back(*olit);
+                }
+
+                for(int i = 0;qlit != tm.ptrTemplet->picture_list.end() && i<comparecnt ;i++,olit++)
+                {
+                    lsCompared.push_back(*olit);
+                }
+
 
             }
             else
@@ -527,10 +594,13 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
 //                char buf[256]={'\n'};
 //                conv.convert(tm.ptrTemplet->ad_fileName,strlen(tm.ptrTemplet->ad_fileName),
 //                             buf,256);
-                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
-                        tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
+//                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
+//                        tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
                 if(weight > m_threshold)
                 {
+                    loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
+                            tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
+
                     // 记录匹配对
                     MatchItem mi;
                     mi.nInspectIndex = index;
@@ -538,7 +608,8 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                     mi.nTempletIndex = ptrPIC->picture_order;
                     mi.fWeight = weight;
                     std::vector<MatchItem>::iterator mfit = std::find_if(tm.vecMatch.begin(),
-                                                                         tm.vecMatch.end(),                                                                         match_equals(mi));
+                                                                         tm.vecMatch.end(),
+                                                                         match_equals(mi));
                     if(mfit == tm.vecMatch.end())
                     {
                          tm.vecMatch.push_back(mi);
@@ -571,7 +642,7 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
 
             loginfo("......Compare inspect image %d - %s",index,ptrTemplet->ad_fileName);
             PICTURE_LIST::iterator lit = ptrTemplet->picture_list.begin();
-            for(int i = 0;lit != ptrTemplet->picture_list.end()&& i<2 ;i++,lit++)
+            for(;lit != ptrTemplet->picture_list.end() ;lit++)
             {
                 PICTUR_ITEM * ptrPIC = *lit;
                 float fpretest = static_cast<float>(inspect->featrueNum)/((ptrPIC->quantity+inspect->featrueNum)/2);
@@ -602,15 +673,19 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                                                 );
 
                 float weight = static_cast<float>(matchcnt)/((ptrPIC->quantity+inspect->featrueNum)/2);
-                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
-                        ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
+//                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
+//                        ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
 
                 if(weight > m_threshold)
                 {
+                    loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
+                                           ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
+
                     std::map<std::string,TempletMatch>::iterator fit = m_mapTempletMatch.find(ptrTemplet->uuid);
                     if(fit != m_mapTempletMatch.end())
                     {
                         TempletMatch & tm = fit->second;
+
 
                         // 记录匹配对
                         MatchItem mi;
@@ -618,7 +693,15 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                         mi.nInspectTimeStamp = inspect->ptrAVFrame->framenum;
                         mi.nTempletIndex = ptrPIC->picture_order;
                         mi.fWeight = weight;
-                        tm.vecMatch.push_back(mi);
+
+                        std::vector<MatchItem>::iterator mfit = std::find_if(tm.vecMatch.begin(),
+                                                                             tm.vecMatch.end(),
+                                                                             match_equals(mi));
+                        if(mfit == tm.vecMatch.end())
+                        {
+                             tm.vecMatch.push_back(mi);
+                        }
+
                     }
                 }
             }
@@ -863,6 +946,7 @@ int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecs
 
 
     // 计算广告间的时长，大于5秒则认为可疑播放
+    C_Para *para = C_Para::GetInstance();
     int calc_cnt = vecTmp.size();
     for(int i = 1 ;i<calc_cnt;i++)
     {
@@ -870,7 +954,7 @@ int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecs
         if(vecTmp[i-1].second.inspect_ts_start>0 && vecTmp[i].second.inspect_ts_end>0)
         {
             interval= vecTmp[i-1].second.inspect_ts_start-vecTmp[i].second.inspect_ts_end-1;
-            if(interval >= 5)
+            if(interval >= para->m_InvalidateShowThresholdSec)
             {
                 suspicious_show ss;
                 ss.adback = vecTmp[i-1].second.ptrTemplet->ad_fileName;
@@ -884,6 +968,35 @@ int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecs
 
 
     return nRet;
+}
+
+
+/*******************************************************************************
+* 函数名称：	CalcAvgMatchWeight
+* 功能描述：	计算匹配权重的均值
+* 输入参数：
+* 输出参数：
+* 返 回 值：	true - 成功，false - 失败
+* 其它说明：
+* 修改日期		修改人	      修改内容
+* ------------------------------------------------------------------------------
+* 2017-04-29 	卢岩	      创建
+*******************************************************************************/
+float CompareEngine::CalcAvgMatchWeight( std::vector<MatchItem> *vecMatch,float &maxWeight)
+{
+    int len = vecMatch.size();
+    float sum = 0;
+    float max = 0;
+    for(int i = 0 ;i < len ;i++)
+    {
+        sum += vecMatch[i].fWeight;
+        if(max < vecMatch[i].fWeight)
+        {
+            max = vecMatch[i].fWeight;
+        }
+    }
+    maxWeight = max;
+    return sum/len;
 }
 
 /*******************************************************************************

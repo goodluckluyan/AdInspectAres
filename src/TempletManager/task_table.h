@@ -45,7 +45,7 @@ public:
 	int GetItemsByItem(TASKS *pitems,TASK_ITEM *pfilter);
 
 	/// 获取有效期内的所有任务信息 
-	int GetAllValidItems(TASKS *ptasks);
+    int GetAllValidItems(std::string &inspecttm,TASKS *ptasks);
 
 	
 public:

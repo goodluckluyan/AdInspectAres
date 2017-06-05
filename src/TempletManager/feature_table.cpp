@@ -172,8 +172,13 @@ void FeatureTable::DeleteItemSpace(FEATURE_ITEM **feature_item)
 		delete [] (*feature_item)->bmp_quantity;
 		(*feature_item)->bmp_quantity=NULL;
 	}
+	if(NULL != *feature_item)
+	{
+		delete *feature_item;
+		*feature_item = NULL;
+		
+	}
 
-    delete *feature_item;
 }
 void FeatureTable::DeleteAllItemsSpace(FEATURES *ptaskitems)
 {
@@ -645,7 +650,7 @@ int FeatureTable::GetAllItems(FEATURES *pfeatures)
 
 	column_count = sizeof(m_feature_column_value_map) / sizeof(m_feature_column_value_map[0]);
 
-	vector<COLUMN_INFO>columninfos;
+	///vector<COLUMN_INFO>columninfos;
 	/// 获取结果中各信息项
 	while ((row = MysqlFetchRow(pres)) != NULL)
 	{

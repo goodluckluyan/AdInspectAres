@@ -150,6 +150,12 @@ public:
     // 是否速度优先
     bool m_IsSpeedPriority;
 
+    // 多播时间阈值
+    int m_InvalidateShowThresholdSec;
+
+    // 比对类型
+    std::string m_FeatrueType;
+
 private:
     static C_Para *m_pInstance;
 	pthread_rwlock_t m_rwlk_main;

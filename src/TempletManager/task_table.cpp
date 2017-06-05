@@ -15,7 +15,7 @@ COLUMN_VALUE_MAP g_task_column_value_map[]=
 	{"hall_id",NULL},
 	{"frameRate",NULL},
 	{"frequency",NULL},
-	{"type",NULL},
+    {"type",NULL},
 	{"videoWidth",NULL},
 	{"videoHeight",NULL},
 	{"dstVideoWidth",NULL},
@@ -270,6 +270,12 @@ void TaskTable::DeleteItemSpace(TASK_ITEM **task_item)
 		delete [] (*task_item)->ad_order;
 		(*task_item)->ad_order=NULL;
 	}
+	if(NULL != *task_item)
+	{
+		delete *task_item;
+		*task_item = NULL;
+		
+	}
 }
 void TaskTable::DeleteTaskItems(TASKS *ptaskitems)
 {
@@ -289,223 +295,6 @@ void TaskTable::DeleteTaskItems(TASKS *ptaskitems)
 		ptaskitems->clear();
 	}
 }
-
-//////////////////////add
-
-//void TaskTable::ClearPictureItemSpace(PICTUR_ITEM *item)
-//{
-//	if(NULL==item)
-//	{
-//		return;
-//	}
-//	
-//	if(NULL!=item->)
-//	{
-//		memset(item->orig_fileName,0,BUFF_SIZE_255);
-//	}
-//	if(NULL!=item->fileName)
-//	{
-//		memset(item->fileName,0,BUFF_SIZE_255);
-//	}
-//	if(NULL!=item->filePath)
-//	{
-//		memset(item->filePath,0,BUFF_SIZE_255);
-//	}
-//	if(NULL!=item->validity)
-//	{
-//		memset(task_item->validity,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->hall_id)
-//	{
-//		memset(task_item->hall_id,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->frameRate)
-//	{
-//		memset(task_item->frameRate,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->frequency)
-//	{
-//		memset(task_item->frequency,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->type)
-//	{
-//		memset(task_item->type,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->description)
-//	{
-//		memset(task_item->description,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->fullFilePath)
-//	{
-//		memset(task_item->fullFilePath,0,BUFF_SIZE_255);
-//	}
-//	if(NULL!=task_item->videoHeight)
-//	{
-//		memset(task_item->videoHeight,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->videoWidth)
-//	{
-//		memset(task_item->videoWidth,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->dstVideoHeight)
-//	{
-//		memset(task_item->dstVideoHeight,0,BUFF_SIZE_50);
-//	}
-//	if(NULL!=task_item->dstVideoWidth)
-//	{
-//		memset(task_item->dstVideoWidth,0,BUFF_SIZE_50);
-//	}
-//
-//}
-//
-//void TaskTable::NewPictureItemSpace(PICTUR_ITEM **item)
-//{
-//	if(NULL!=*task_item)
-//	{
-//		return;
-//	}
-//
-//	*task_item=(TASK_ITEM *)new TASK_ITEM;
-//
-//
-//	(*task_item)->id=new char[BUFF_SIZE_50];
-//	(*task_item)->uuid=new char[BUFF_SIZE_50];
-//	(*task_item)->orig_fileName=new char[BUFF_SIZE_255];
-//	(*task_item)->fileName=new char[BUFF_SIZE_255];
-//	(*task_item)->filePath=new char[BUFF_SIZE_255];
-//	(*task_item)->validity=new char[BUFF_SIZE_50];
-//	(*task_item)->hall_id=new char[BUFF_SIZE_50];
-//	(*task_item)->frameRate=new char[BUFF_SIZE_50];
-//	(*task_item)->frequency=new char[BUFF_SIZE_50];
-//	(*task_item)->type=new char[BUFF_SIZE_50];
-//	(*task_item)->description=new char[BUFF_SIZE_50];
-//	(*task_item)->fullFilePath=new char[BUFF_SIZE_255];
-//	(*task_item)->videoHeight=new char[BUFF_SIZE_50];
-//	(*task_item)->videoWidth=new char[BUFF_SIZE_50];
-//	(*task_item)->dstVideoHeight=new char[BUFF_SIZE_50];
-//	(*task_item)->dstVideoWidth=new char[BUFF_SIZE_50];
-//
-//	ClearTableItemSpace(*task_item);
-//}
-//
-//void TaskTable::DeletePictureItemSpace(PICTUR_ITEM **item)
-//{
-//	if(NULL==(*task_item))
-//	{
-//		return;
-//	}
-//
-//	ClearTableItemSpace(*task_item);
-//
-//	if(NULL!=(*task_item)->uuid)
-//	{
-//		delete [] (*task_item)->id;
-//		(*task_item)->id=NULL;
-//		delete [] (*task_item)->uuid;
-//		(*task_item)->uuid=NULL;
-//	}
-//	if(NULL!=(*task_item)->orig_fileName)
-//	{
-//		delete [] (*task_item)->orig_fileName;
-//		(*task_item)->orig_fileName=NULL;
-//	}
-//	if(NULL!=(*task_item)->fileName)
-//	{
-//		delete [] (*task_item)->fileName;
-//		(*task_item)->fileName=NULL;
-//	}
-//	if(NULL!=(*task_item)->filePath)
-//	{
-//		delete [] (*task_item)->filePath;
-//		(*task_item)->filePath=NULL;
-//	}
-//	if(NULL!=(*task_item)->validity)
-//	{
-//		delete [] (*task_item)->validity;
-//		(*task_item)->validity=NULL;
-//	}
-//	if(NULL!=(*task_item)->hall_id)
-//	{
-//		delete [] (*task_item)->hall_id;
-//		(*task_item)->hall_id=NULL;
-//	}
-//	if(NULL!=(*task_item)->frameRate)
-//	{
-//		delete [] (*task_item)->frameRate;
-//		(*task_item)->frameRate=NULL;
-//	}
-//	if(NULL!=(*task_item)->frequency)
-//	{
-//		delete [] (*task_item)->frequency;
-//		(*task_item)->frequency=NULL;
-//	}
-//	if(NULL!=(*task_item)->type)
-//	{
-//		delete [] (*task_item)->type;
-//		(*task_item)->type=NULL;
-//	}
-//	if(NULL!=(*task_item)->description)
-//	{
-//		delete [] (*task_item)->description;
-//		(*task_item)->description=NULL;
-//	}
-//	if(NULL!=(*task_item)->fullFilePath)
-//	{
-//		delete [] (*task_item)->fullFilePath;
-//		(*task_item)->fullFilePath=NULL;
-//	}
-//	if(NULL!=(*task_item)->videoHeight)
-//	{
-//		delete [] (*task_item)->videoHeight;
-//		(*task_item)->videoHeight=NULL;
-//	}
-//	if(NULL!=(*task_item)->videoWidth)
-//	{
-//		delete [] (*task_item)->videoWidth;
-//		(*task_item)->videoWidth=NULL;
-//	}
-//	if(NULL!=(*task_item)->dstVideoHeight)
-//	{
-//		delete [] (*task_item)->dstVideoHeight;
-//		(*task_item)->dstVideoHeight=NULL;
-//	}
-//	if(NULL!=(*task_item)->dstVideoWidth)
-//	{
-//		delete [] (*task_item)->dstVideoWidth;
-//		(*task_item)->dstVideoWidth=NULL;
-//	}
-//}
-//void TaskTable::DeletePictureItems(PICTURE_LIST *items)
-//{
-//	if(NULL == ptaskitems)
-//	{
-//		return;
-//	}
-//
-//	if(ptaskitems->size() > 0)
-//	{
-//		for(int i = 0; i<ptaskitems->size(); i++)
-//		{
-//			TASK_ITEM *ptemp = (TASK_ITEM *)((*ptaskitems)[i]);
-//			DeleteItemSpace(&ptemp);
-//		}
-//
-//		ptaskitems->clear();
-//	}
-//}
-
-
-
-
-
-
-
-
-
-
-/////////////@end
-
-
 
 int TaskTable::FillSqlItem(char *sql,TASK_ITEM *task_item,int type)
 {
@@ -624,6 +413,10 @@ int TaskTable::InsertTaskItem(TASK_ITEM *task_item)
 
 	if( NULL == task_item)
 	{
+		
+		///////////////记录日志////////////
+//		sprintf(buff_temp,"InsertTaskItem create task_item space  was failure!!!\n");
+//		g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
 		return DB_PARAMETER_ERROR;
 	}
 
@@ -929,7 +722,7 @@ int TaskTable::GetAllItems(TASKS *ptasks)
 
 	column_count = sizeof(m_task_column_value_map) / sizeof(m_task_column_value_map[0]);
 
-	vector<COLUMN_INFO>columninfos;
+	///vector<COLUMN_INFO>columninfos;
 	/// 获取结果中各信息项
 	while ((row = MysqlFetchRow(pres)) != NULL)
 	{
@@ -1033,168 +826,7 @@ int TaskTable::GetItemsByItem(TASKS *pitems,TASK_ITEM *pfilter)
 	return ret;
 }
 
-///// 获取有效期内的所有任务信息
-//int TaskTable::GetAllValidItems(TASKS *ptasks)
-//{
-//	int ret=DB_SUCCESS;
-//	char sql[BUFF_SIZE_255];
-//	char pbuff_values[BUFF_SIZE_2048];
-//	int column_count=0;
-//	int column_index=0;
-//	MYSQL *conn = NULL;			
-//	MYSQL_RES *pres = NULL;
-//	MYSQL_ROW row;
-//
-//	/// 清空原有的记录项
-//	if(ptasks->size() > 0)
-//	{
-//		ptasks->clear();
-//	}
-//
-//	/// 连接数据库
-//	ret = Connect(&conn);
-//	if( DB_SUCCESS != ret)
-//	{
-//		return ret;
-//	}
-//
-//	memset(sql,0,sizeof(sql));
-//	sprintf(sql,"select * from tasks order by id asc");
-//	/////////////////////////////////
-//#if 0
-//	column_count = sizeof(m_task_column_value_map) / sizeof(m_task_column_value_map[0]);
-//	MapItemVarToArray(task_item);
-//	///sprintf(sql,"select * from tasks where `check_state` = \"finished\" or `check_state` = \"finished_abort\" or `check_state` = \"finished_error\"  order by id asc");
-//	
-//	
-//	///sprintf(sql, "select * from tasks  where  startDateTime <= now() <= endDateTime by id desc");
-//
-//	for(column_index = 0;column_index < column_count; column_index++)
-//		{
-//			if(strcmp(m_task_column_value_map[column_index].pvalue_var,"") && strcmp(pbuff_values,""))
-//			{
-//				///if(strcmp(pbuff_values,"") )
-//				///{
-//				///	strcat(pbuff_values," <= now() <= ");
-//				///}	
-//				if(!strcmp(m_task_column_value_map[column_index].pvalue_var,"startDateTime"))
-//				{
-//					strcat(pbuff_values,m_task_column_value_map[column_index].column_name);
-//					strcat(pbuff_values,"='");
-//					strcat(pbuff_values,m_task_column_value_map[column_index].pvalue_var);
-//					strcat(pbuff_values,"'");
-//					printf("1111111111 pbuff_values:%s",pbuff_values);
-//				}
-//				strcat(pbuff_values," <= now() <= ");
-//				printf("222222 pbuff_values:%s",pbuff_values);
-//				if(!strcmp(m_task_column_value_map[column_index].pvalue_var,"endDateTime"))
-//				{
-//					strcat(pbuff_values,m_task_column_value_map[column_index].column_name);
-//					strcat(pbuff_values,"='");
-//					strcat(pbuff_values,m_task_column_value_map[column_index].pvalue_var);
-//					strcat(pbuff_values,"'");
-//				}
-//				printf("pbuff_values:%s",pbuff_values);
-//			}
-//		}
-//
-//		if(strcmp(pbuff_values,""))
-//		{
-//			sprintf(sql,"select * from tasks where %s order by id asc",pbuff_values);		}
-//		else
-//		{
-//			sprintf(sql,"select * from tasks order by id asc");		
-//		}
-//#endif
-//		///////////////////////
-//	/// 发送查询命令
-//	if (MysqlQuery(&conn,sql)) 
-//	{
-//
-//		DisConnected(&conn);
-//		return DB_COMMAND_QUERY_ERROR;
-//	}
-//
-//	/// 获取结果
-//	pres = MysqlUseResult(conn);
-//
-//	column_count = sizeof(m_task_column_value_map) / sizeof(m_task_column_value_map[0]);
-//
-//	vector<COLUMN_INFO>columninfos;
-//
-//	////////////////////增加获取当前时间
-//	time_t timep;  
-//	char nowTime[30] = {0}; 
-//	char starttTime[30] = {0}; 
-//	char endTime[30] = {0}; 
-//   /// struct tm *p_tm;  
-//    timep = time(NULL);  
-//
-//    ///p_tm = localtime(&timep);  
-//    strftime(nowTime, sizeof(nowTime), "%Y-%m-%d %H:%M:%S", localtime(&timep));  
-//	printf("nowTime:%s\n",nowTime);
-//	int result_cmp=0;
-//
-//	///int c = strcmp(stardTime,endTime);
-//	///printf("c:%d\n",c);
-//	/////////////////////////end
-//	/// 获取结果中各信息项
-//	while ((row = MysqlFetchRow(pres)) != NULL)
-//	{
-//
-//		TASK_ITEM *cplitem=NULL;
-//
-//		NewTableItemSpace(&cplitem);
-//		MapItemVarToArray(cplitem);
-//
-//		for(column_index=0;column_index<column_count;column_index++)
-//		{
-//			if(NULL!=row[column_index])
-//			{
-//				strcpy(m_task_column_value_map[column_index].pvalue_var,(char *)row[column_index]);
-//
-//				///printf("column_name:%s\n",m_task_column_value_map[column_index].column_name);
-//				if(!strcmp(m_task_column_value_map[column_index].column_name,"startDateTime"))
-//				{
-//					///printf("aaaa column_name:%s\n",m_task_column_value_map[column_index].column_name);
-//					sprintf(starttTime,"%s",m_task_column_value_map[column_index].pvalue_var);
-//					///printf("starttTime:%s\n",starttTime);
-//				}
-//				if(!strcmp(m_task_column_value_map[column_index].column_name,"endDateTime"))
-//				{
-//					sprintf(endTime,"%s",m_task_column_value_map[column_index].pvalue_var);
-//					///printf("endTime:%s\n",endTime);
-//				}
-//			}
-//		}
-//
-//	
-//		result_cmp = strcmp(nowTime,starttTime);
-//		if (result_cmp >= 0)
-//		{
-//				
-//
-//				result_cmp = strcmp(nowTime,endTime);
-//				if (result_cmp <= 0)
-//				{
-//					ptasks->push_back(cplitem);
-//				}
-//					
-//		}
-//
-//		///ptasks->push_back(cplitem);
-//
-//	}	
-//	/// 释放结果
-//	MysqlFreeResult(pres);			
-//
-//	/// 断开数据库连接
-//	ret = DisConnected(&conn);
-//	return ret;
-//}
-
-/// 获取有效期内的所有任务信息
-int TaskTable::GetAllValidItems(TASKS *ptasks)
+int TaskTable::GetAllValidItems(std::string &inspecttm,TASKS *ptasks)
 {
 	int ret=DB_SUCCESS;
 	char sql[BUFF_SIZE_255];
@@ -1221,7 +853,8 @@ int TaskTable::GetAllValidItems(TASKS *ptasks)
 	///sprintf(sql,"select * from tasks where `check_state` = \"finished\" or `check_state` = \"finished_abort\" or `check_state` = \"finished_error\"  order by id asc");
 	///sprintf(sql,"select * from tasks order by id asc");
 
-	sprintf(sql,"select * from tasks where endDateTime>=now() and now()>= startDateTime  order by id asc;");
+    sprintf(sql,"select * from tasks where endDateTime>=\'%s\' and \'%s\'>= startDateTime  "
+                "order by id asc;",inspecttm.c_str(),inspecttm.c_str());
 	/// 发送查询命令
 	if (MysqlQuery(&conn,sql)) 
 	{
@@ -1235,7 +868,7 @@ int TaskTable::GetAllValidItems(TASKS *ptasks)
 
 	column_count = sizeof(m_task_column_value_map) / sizeof(m_task_column_value_map[0]);
 
-	vector<COLUMN_INFO>columninfos;
+	///vector<COLUMN_INFO>columninfos;
 	/// 获取结果中各信息项
 	while ((row = MysqlFetchRow(pres)) != NULL)
 	{

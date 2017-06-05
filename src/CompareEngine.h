@@ -13,6 +13,7 @@
 #include "utility/osapi/OSThread.h"
 #include "TempletManager/VideoCompareModule.h"
 #include "database/CppMySQL3DB.h"
+#include "threadManage/C_CS.h"
 
 
 
@@ -150,7 +151,7 @@ class CompareEngine :public OS_Thread
 {
 public:
     CompareEngine(int hallid,TempletManager *ptrTempletMgr,
-                   std::string city,std::string cinema_name);
+                   std::string city,std::string cinema_name,C_CS *pCS);
     ~CompareEngine();
 
     // 设置比对完成回调函数
@@ -161,7 +162,7 @@ public:
                  int port,C_Para::Rect &rect);
 
     // 比较
-    int Compare(std::string &taskid,FrameBufferLoop *);
+    int Compare(std::string &taskid,time_t tm,FrameBufferLoop *);
 
     // 线程函数
     int Routine();
@@ -192,6 +193,9 @@ private:
     // 可疑播放入库
     bool InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss);
 
+    // 计算匹配权重的均值
+    float CalcAvgMatchWeight( std::vector<MatchItem> *vecMatch);
+
 private:
     // 厅号
     int m_hallid;
@@ -218,6 +222,9 @@ private:
     // 匹配成功阈值
     float m_threshold ;
 
+    // 获取模板时的互斥体
+    C_CS *m_pTempletMgrMutx;
+
 
 
     // 录播比对区域
@@ -235,6 +242,8 @@ private:
     std::string m_strPasswd;
     std::string m_strDB_name;
     int m_nPort ;
+    unsigned int  m_curtask_start_tm;
+
 
 
 };

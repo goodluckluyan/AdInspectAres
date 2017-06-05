@@ -13,7 +13,7 @@
 #include "utility/C_Time.h"
 #include "CompareEngine.h"
 #include "downloadmgr.h"
-#include "parser_xml.h"\
+#include "parser_xml.h"
 
 extern MyLogger g_main_logwrite;
 
@@ -130,6 +130,9 @@ public:
     int WS_AddInspectModule(std::string &id,string &OrderNO,string &AdName,int CinemaNum,std::string& start,
                             std::string & end,int ShowOder,int Type,std::string &ModulePath );
 
+    // 删除模板
+    int WS_DelInspectModule(std::string &uuid);
+
     // 视频文件下载完成回调
     static int BC_VideoDownLoadComplete(void *ptr,int HallID,int CameraPos,time_t Start,int Duration,std::string FilePath,bool bResultVedio);
 
@@ -198,6 +201,11 @@ private:
 
     // 龙标检测当前任务hash表互斥体
     C_CS m_mutxCurTaskMap;
+
+
+    // 删除模板互斥体
+    C_CS m_mutxDelTemplet;
+
 
     // 初始化标记
     bool m_bInit;
