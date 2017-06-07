@@ -134,7 +134,9 @@ public:
     int WS_DelInspectModule(std::string &uuid);
 
     // 视频文件下载完成回调
-    static int BC_VideoDownLoadComplete(void *ptr,int HallID,int CameraPos,time_t Start,int Duration,std::string FilePath,bool bResultVedio);
+    static int BC_VideoDownLoadComplete(void *ptr,int HallID,int CameraPos,
+                                        time_t Start,int Duration,std::string FilePath,
+                                        bool bResultVedio,std::string uuid);
 
     // 检测龙标完成回调
     static int BC_CheckLongbiaoComplete(void *userdata,void *pmarkjobresult);
@@ -164,11 +166,23 @@ private:
     //  对已下载的视频文件适时加入龙标检测，并对完成的项目进行删除
     int TaskDispatch();
 
+    // 创建模板时开辟内存空间，释放时使用DeleteItemSpace
     void NewTableItemSpace(TASK_ITEM **task_item);
+
+    // 释放模板创建时开辟的内存
     void DeleteItemSpace(TASK_ITEM **task_item);
+
+    // 清零NewTableItemSpace开辟的空间
     void ClearTableItemSpace(TASK_ITEM *task_item);
+
+    // 龙标出现时间插到龙标表
     bool InsertLongbiao_DB(std::string taskid,time_t timets,int hallid);
+
+    // 获取影院信息
     bool GetCinemaInfo_DB();
+
+    // 更新结果视频文件的数据库状态
+    bool UpdateResultDownloadStat_DB(std::string uuid,std::string strStart);
 private:
     // 下载管理对象
     CDownLoadMgr m_DownloadMgr;
@@ -215,6 +229,7 @@ private:
     C_CS m_mutxCreateTemple;
     std::list<ptrTempletInfo> m_lstCreateTempleTask;
 
+    // 影院信息
     std::string m_strCity;
     std::string m_strCinemaName;
 

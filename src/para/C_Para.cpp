@@ -330,6 +330,15 @@ int C_Para::ReadPara()
     loginfo("reading config ,WeightThreshold:%f",m_WeightThreshold);
 
     memset(a,0,64);
+    iResult = config.readvalue("PARA","MatchCountThreshold",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    m_MatchCountThreshold = atoi(a);
+    loginfo("reading config ,MatchCountThreshold:%d",m_MatchCountThreshold);
+
+    memset(a,0,64);
     iResult = config.readvalue("PARA","IsSpeedPriority",a,strInipath.c_str());
     if(iResult != 0)
     {

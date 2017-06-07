@@ -147,6 +147,9 @@ public:
     // 比对成功的阈值
     float m_WeightThreshold;
 
+    // 比对成功的匹配数量阈值
+    int m_MatchCountThreshold;
+
     // 是否速度优先
     bool m_IsSpeedPriority;
 

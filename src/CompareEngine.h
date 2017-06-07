@@ -22,6 +22,9 @@ typedef struct _MatchItem
     int nInspectIndex;
     int nInspectTimeStamp;
     int nTempletIndex;
+    int nTempletFeatrue;
+    int nInspectFeatrue;
+    int nMatchCount;
     float fWeight;
 }MatchItem;
 
@@ -194,7 +197,7 @@ private:
     bool InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss);
 
     // 计算匹配权重的均值
-    float CalcAvgMatchWeight( std::vector<MatchItem> *vecMatch);
+    float CalcAvgMatchWeight( std::vector<MatchItem> vecMatch,float &max);
 
 private:
     // 厅号
@@ -221,6 +224,7 @@ private:
 
     // 匹配成功阈值
     float m_threshold ;
+    int m_match_count_threshold;
 
     // 获取模板时的互斥体
     C_CS *m_pTempletMgrMutx;
@@ -359,19 +363,60 @@ public:
         fclose(pDestFile);
     }
 
+    void Savebmp_HR(std::string fullpath,int width,int height)
+    {
+
+        int lineBytes = width*3;
+        FILE *pDestFile = fopen(fullpath.c_str(), "wb");
+        if(NULL == pDestFile)
+        {
+            printf("open file %s failed\n",fullpath.c_str());
+            return;
+        }
+        BITMAPFILEHEADER btfileHeader;
+        btfileHeader.bfType = 0x4d42;//mb
+        btfileHeader.bfSize = lineBytes*height;
+        btfileHeader.bfReserved1 = 0;
+        btfileHeader.bfReserved2 = 0;
+        btfileHeader.bfOffBits = sizeof(BITMAPFILEHEADER);
+
+        BITMAPINFOHEADER bitmapinfoheader;
+        bitmapinfoheader.biSize = 40;
+        bitmapinfoheader.biWidth = width;
+        bitmapinfoheader.biHeight = height;
+        bitmapinfoheader.biPlanes = 1;
+        bitmapinfoheader.biBitCount = 24;
+        bitmapinfoheader.biCompression = 0;
+        bitmapinfoheader.biSizeImage = lineBytes*height;
+        bitmapinfoheader.biXPelsPerMeter = 0;
+        bitmapinfoheader.biYPelsPerMeter = 0;
+        bitmapinfoheader.biClrUsed = 0;
+        bitmapinfoheader.biClrImportant = 0;
+
+        int i=0;
+        fwrite(&btfileHeader, sizeof(BITMAPFILEHEADER), 1, pDestFile);
+        fwrite(&bitmapinfoheader, sizeof(BITMAPINFODEADER), 1, pDestFile);
+        for(i=height-1; i>=0; i--)
+        {
+           fwrite(m_pRGB24_HR+i*lineBytes, lineBytes, 1, pDestFile);
+        }
+
+        fclose(pDestFile);
+    }
+
     char * SetHRRect(int left,int top,int right,int bottom)
     {
-        int width = right - left + 1;
-        int height = bottom - top +1;
+        int width = right - left;
+        int height = bottom - top;
         m_pRGB24_HR = (char *) malloc(width*height*3);
         m_lsize_hr = width*height*3;
         int linesize = width*3;
         int rawlinesize = m_nWidth*3;
-        int rawstart = top-2*rawlinesize+left*3;
+        int rawstart = (top-1)*rawlinesize+left*3;
 
         for(int i = 0 ;i < height ;i++)
         {
-            memcpy(m_pRGB24_HR+linesize*i,m_pBGR24+linesize*i+rawstart,width*3);
+            memcpy(m_pRGB24_HR+linesize*i,m_pBGR24+rawstart+rawlinesize*i,linesize);
         }
         return m_pRGB24_HR;
 

@@ -105,6 +105,7 @@ int CompareEngine::Init(std::string &dbip,std::string &dbuser,std::string &passw
 
     C_Para *para = C_Para::GetInstance();
     m_threshold = para->m_WeightThreshold;
+    m_match_count_threshold = para->m_MatchCountThreshold;
     m_rect = rect;
     m_strDB_IP=dbip;
     m_strDB_User=dbuser;
@@ -397,7 +398,6 @@ int CompareEngine::Routine()
         {
              SaveInspectImage(tm);
         }
-
     }
 
     // 结果保存到数据库
@@ -465,7 +465,6 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                bufsize = buf.m_lsize_hr;
                width = m_rect.width();
                height = m_rect.height();
-
             }
 
             if(NULL == ptrbuf)
@@ -596,7 +595,7 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
 //                             buf,256);
 //                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
 //                        tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
-                if(weight > m_threshold)
+                if(weight >= m_threshold && matchcnt > m_match_count_threshold)
                 {
                     loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
                             tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
@@ -607,6 +606,9 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                     mi.nInspectTimeStamp = inspect->ptrAVFrame->framenum;
                     mi.nTempletIndex = ptrPIC->picture_order;
                     mi.fWeight = weight;
+                    mi.nInspectFeatrue = inspect->featrueNum;
+                    mi.nTempletFeatrue = ptrPIC->quantity;
+                    mi.nMatchCount = matchcnt;
                     std::vector<MatchItem>::iterator mfit = std::find_if(tm.vecMatch.begin(),
                                                                          tm.vecMatch.end(),
                                                                          match_equals(mi));
@@ -676,7 +678,7 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
 //                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
 //                        ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
 
-                if(weight > m_threshold)
+                if(weight >= m_threshold && matchcnt > m_match_count_threshold)
                 {
                     loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
                                            ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
@@ -693,6 +695,9 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                         mi.nInspectTimeStamp = inspect->ptrAVFrame->framenum;
                         mi.nTempletIndex = ptrPIC->picture_order;
                         mi.fWeight = weight;
+                        mi.nInspectFeatrue = inspect->featrueNum;
+                        mi.nTempletFeatrue = ptrPIC->quantity;
+                        mi.nMatchCount = matchcnt;
 
                         std::vector<MatchItem>::iterator mfit = std::find_if(tm.vecMatch.begin(),
                                                                              tm.vecMatch.end(),
@@ -775,6 +780,13 @@ int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecs
                 continue;
             }
         }
+
+//        float max;
+//        CalcAvgMatchWeight(tm.vecMatch,max);
+//        if(tm.vecMatch.size()<10 && max<0.01)
+//        {
+//            continue;
+//        }
 
         Location loc;
 
@@ -982,7 +994,7 @@ int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecs
 * ------------------------------------------------------------------------------
 * 2017-04-29 	卢岩	      创建
 *******************************************************************************/
-float CompareEngine::CalcAvgMatchWeight( std::vector<MatchItem> *vecMatch,float &maxWeight)
+float CompareEngine::CalcAvgMatchWeight( std::vector<MatchItem> vecMatch,float &maxWeight)
 {
     int len = vecMatch.size();
     float sum = 0;
@@ -1049,11 +1061,14 @@ bool CompareEngine::InsertMatch_DB()
 
              snprintf(sql,1024,"insert into matchitem"
                                "(task_id,templet_uuid,inspect_order,inspect_ts,"
-                               "inspect_time,templet_order,templet_name,weight,time) "
+                               "inspect_time,templet_order,templet_name,weight,time,"
+                               "inspect_featrue,templet_featrue,match_count) "
                                "values(\"%s\",\"%s\",%d,%u,"
-                               "\"%s\",%d,\"%s\",%.3f,\'%s\')",
+                               "\"%s\",%d,\"%s\",%.3f,\'%s\',"
+                               "%d,%d,%d)",
                                 m_curtaskid.c_str(),tm.ptrTemplet->uuid,mi.nInspectIndex,mi.nInspectTimeStamp,
-                      strtm.c_str(),mi.nTempletIndex,tm.ptrTemplet->ad_fileName,mi.fWeight,strcur.c_str());
+                      strtm.c_str(),mi.nTempletIndex,tm.ptrTemplet->ad_fileName,mi.fWeight,strcur.c_str(),
+                      mi.nInspectFeatrue,mi.nTempletFeatrue,mi.nMatchCount);
              int nResult = MatchDB.execSQL(sql);
              if(nResult != -1)
              {

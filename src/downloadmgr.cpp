@@ -215,7 +215,7 @@ bool CDownLoadMgr::AddDownTask()
 
 
     AddDownTask(item);
-    m_lastsec = item.start + item.duration + 1;
+    m_lastsec = item.start + item.duration ;
 
     loginfo("Add last time period  download task (s:%u-e:%u ss:%u-se:%u)", static_cast<unsigned int>(item.start),
             static_cast<unsigned int>(item.duration),iStarTime,iEndTime);
@@ -323,7 +323,7 @@ void CDownLoadMgr::ProcessDownTask()
             {
 
                 m_pDownloadCompeteFun(m_Userdata,m_HallID,m_CameraPos,task.start,
-                                      task.duration,filepath,true);
+                                      task.duration,filepath,true,task.uuid);
             }
 
             pthread_mutex_lock(&m_mutx);
@@ -369,7 +369,7 @@ void CDownLoadMgr::ProcessDownTask()
                 if(m_pDownloadCompeteFun != NULL)
                 {
                     m_pDownloadCompeteFun(m_Userdata,m_HallID,m_CameraPos,task.start,
-                                          task.duration,filepath,false);
+                                          task.duration,filepath,false,"");
                 }
 
                 pthread_mutex_lock(&m_mutx);
@@ -440,7 +440,7 @@ void CDownLoadMgr::ProcessDownTask()
                 {
 
                     m_pDownloadCompeteFun(m_Userdata,m_HallID,m_CameraPos,task.start,
-                                          task.duration,filepath,false);
+                                          task.duration,filepath,false,"");
                 }
 
                 pthread_mutex_lock(&m_mutx);
@@ -489,7 +489,7 @@ bool CDownLoadMgr::AddDayTask(struct tm &day)
             break;
         }
         AddDownTask(item);
-        m_lastsec = item.start+item.duration-1;
+        m_lastsec = item.start+item.duration;
     }
 }
 
@@ -858,12 +858,12 @@ bool CDownLoadMgr::UpdateDownFileStatus_DB(std::string taskid,int status)
     int nResult = CompleteFile_DB.execSQL(sql);
     if(nResult != -1)
     {
-            loginfo("CInvoke:update DownLoadComplete:status database OK<%s>",sql);
+            loginfo("CDownLoadMgr:update DownLoadComplete:status database OK<%s>",sql);
             return true;
     }
     else
     {
-            logerror("CInvoke:update DownLoadComplete:status database FAILED<%s>",sql);
+            logerror("CDownLoadMgr:update DownLoadComplete:status database FAILED<%s>",sql);
             return false;
     }
 }

@@ -462,7 +462,17 @@ int CMainProcess::TaskDispatch()
                 ptrVideoFile &ptrVF = *dit;
                 if(DIRTY == ptrVF->Status)
                 {
+                    if(CFileEx::DelFile(ptrVF->FilePath.c_str()))
+                    {
+                        loginfo("Delete DIRTY mp4 file %s OK",ptrVF->FilePath.c_str());
+                    }
+                    else
+                    {
+                         logerror("Delete DIRTY mp4 file %s Failed",ptrVF->FilePath.c_str());
+                    }
+
                     lsVF.erase(dit++);
+
                 }
             }
         }
@@ -564,14 +574,15 @@ int CMainProcess::WS_AddInspectModule(std::string &id,string &OrderNO,string &Ad
     *  2017-04-29 	 卢岩	      创建
     *******************************************************************************/
 int CMainProcess::BC_VideoDownLoadComplete(void * ptr,int HallID,int CameraPos,time_t Start,
-                                           int Duration,std::string FilePath,bool bResultVideo)
+                                           int Duration,std::string FilePath,bool bResultVideo,
+                                           std::string uuid)
 {
     char buff[32]={'\0'};
     strftime(buff,32,"%Y-%m-%d %H:%M:%S",localtime(&Start));
+    CMainProcess * pthis = (CMainProcess*)ptr;
     if(!bResultVideo)
     {
         // 录播待比对视频
-        CMainProcess * pthis = (CMainProcess*)ptr;
         C_GuardCS guard(&pthis->m_mutxVideoFileMap);
         pthis->m_mapVideoFile[HallID].push_back(ptrVideoFile(new VideoFile(HallID,CameraPos,Start,Duration,FilePath)));
         loginfo("vedio file download complete( %d hall %d camera file:%s start:%s,duration:%d) ",
@@ -581,12 +592,14 @@ int CMainProcess::BC_VideoDownLoadComplete(void * ptr,int HallID,int CameraPos,t
     else
     {
         // 比对结果视频
-        loginfo("ResultVedio(%d-%d-%s-%d %s) DownLoad Complete!\n",
+        loginfo("ResultVedio(%d-%d-[%s]-%d %s) DownLoad Complete!\n",
                 HallID,CameraPos,buff,Duration,FilePath.c_str());
+        pthis->UpdateResultDownloadStat_DB(uuid,std::string(buff));
     }
 
     return 0;
 }
+
 
 
 /*******************************************************************************
@@ -673,6 +686,7 @@ int CMainProcess::BC_CompareComplete(void *ptr,
             dlii.duration = tm.inspect_ts_end - tm.inspect_ts_start + 1;
             dlii.savepath = tm.resultpath;
             dlii.filename = tm.vediofilename;
+            dlii.uuid = tm.ptrTemplet->uuid;
             pthis->m_DownloadMgr.AddResultSampleDownTask(dlii);
             loginfo("Compare complete,Downlaod result vedio file(start:%d duration:%d path:%s) ",
                     dlii.start,dlii.duration,std::string(dlii.savepath+"/"+ dlii.filename).c_str());
@@ -1178,4 +1192,46 @@ void CMainProcess::ClearTableItemSpace(TASK_ITEM *task_item)
     }
 }
 
+
+/*******************************************************************************
+* 函数名称：	InsertResult_DB
+* 功能描述：	结果入库
+* 输入参数：
+* 输出参数：
+* 返 回 值：	true - 成功，false - 失败
+* 其它说明：
+* 修改日期		修改人	      修改内容
+* ------------------------------------------------------------------------------
+* 2017-04-29 	卢岩	      创建
+*******************************************************************************/
+bool CMainProcess::UpdateResultDownloadStat_DB(std::string uuid,std::string strStart)
+{
+
+    CppMySQL3DB ResultDB;
+    C_Para *para = C_Para::GetInstance();
+
+    if(ResultDB.open( para->m_DB_IP.c_str(),para->m_DB_User.c_str(),
+                      para->m_DB_Passwd.c_str(),"oristarmr",para->m_DB_Port) == -1)
+    {
+        printf(0,"mysql open failed!\n");
+        return -1;
+    }
+
+
+    char sql[1024]={'\0'};
+    snprintf(sql,1024,"update app_monitor set fileStatus=1 where advert_id=\"%s\" "
+                      "and inspect_start_time=\'%s\'",uuid.c_str(),strStart.c_str());
+
+    int nResult = ResultDB.execSQL(sql);
+    if(nResult != -1)
+    {
+        loginfo("CMainProcess:update app_monitor:status database OK<%s>",sql);
+        return true;
+    }
+    else
+    {
+        logerror("CMainProcess:update app_monitor:status database FAILED<%s>",sql);
+        return false;
+    }
+}
 

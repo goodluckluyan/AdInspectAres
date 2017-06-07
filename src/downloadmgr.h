@@ -11,6 +11,7 @@ typedef struct _DownLoadInfoItem
    int duration;
    std::string savepath;
    std::string filename;
+   std::string uuid;
 }DownLoadInfoItem;
 
 typedef struct _DBLoginInfo
@@ -24,7 +25,8 @@ typedef struct _DBLoginInfo
 
 enum FILESTATUS{ACTIVITY,INACTIVITY};
 typedef int (*CompleteDLT_CallBack)(void *userdate,int HallID,int CameraPos,time_t Start,
-                                    int Duration,std::string FilePath,bool bResultVideo);
+                                    int Duration,std::string FilePath,bool bResultVideo,
+                                    std::string uuid);
 
 class CDownLoadMgr
 {
