@@ -47,6 +47,12 @@ public:
 	{
 		return m_time.tm_wday;
 	}
+
+    tm gettm()
+    {
+        return m_time;
+    }
+
 	//@author liuhongjun@oristartech.com
 	//date 2012-07-19
 	//added begin
@@ -54,6 +60,8 @@ public:
 	void getTimeTStr(string &strTime);
 	void getHhMmSs(string &strTime);
 	//added end
+
+
 private:
      tm m_time;
 };

@@ -159,6 +159,9 @@ public:
     // 比对类型
     std::string m_FeatrueType;
 
+    // 开始监播时间
+    std::string m_StartDate;
+
 private:
     static C_Para *m_pInstance;
 	pthread_rwlock_t m_rwlk_main;

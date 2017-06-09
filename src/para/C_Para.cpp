@@ -368,6 +368,15 @@ int C_Para::ReadPara()
     m_FeatrueType = tmpstr;
     loginfo("reading config ,m_FeatrueType:%s",m_FeatrueType.c_str());
 
+    memset(a,0,64);
+    iResult = config.readvalue("PARA","StartDate",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    m_StartDate = a;
+    loginfo("reading config ,StartDate:%s",m_StartDate.c_str());
+
 
 	return 0;
 }

@@ -114,11 +114,23 @@ bool CMainProcess::Init()
 
     m_DownloadMgr.SetDownloadCompete_BCFun(static_cast<void*>(this),BC_VideoDownLoadComplete);
     m_DownloadMgr.Init(3,1,db_login,"127.0.0.1",12343,para->m_VideoFile_SplitSec);
-    struct tm cur;
-    time_t tmpTime;
-    time(&tmpTime);
-    C_LocalTime::GetInstance()->LocalTime(&tmpTime,cur);
-    m_DownloadMgr.AddDayTask(cur);
+
+    if(para->m_StartDate.empty())
+    {
+        struct tm cur;
+        time_t tmpTime;
+        time(&tmpTime);
+        C_LocalTime::GetInstance()->LocalTime(&tmpTime,cur);
+        m_DownloadMgr.AddDayTask(cur);
+    }
+    else
+    {
+       C_Time Startdate;
+       Startdate.setTimeStr(para->m_StartDate);
+       struct tm cur = Startdate.gettm();
+       m_DownloadMgr.AddDayTask(cur);
+    }
+
 
     // 初始化当前龙标检测任务表
     int allhall[1] = {3};
@@ -396,6 +408,27 @@ int CMainProcess::TaskDispatch()
             loginfo("Create Mark Job Fail:%s(p:%d r:%d w:%d h:%d ts:%d) ",
                     mji->videopath,mji->decode_start_pos,mji->decode_rate,mji->decode_width,
                     mji->decode_height,mji->time_base);
+
+            // 清空当前任务
+            std::string taskid = mji->markjob_id;
+            std::string hallid = taskid.substr(0,taskid.find("-"));
+            int hallnum = atoi(hallid.c_str());
+            std::map<int,ptrVideoFile>::iterator fit = m_mapCurTaskFile.find(hallnum);
+            if(fit != m_mapCurTaskFile.end())
+            {
+                ptrVideoFile &tmpCurVideoFile = fit->second;
+                if(tmpCurVideoFile->UUID == taskid)
+                {
+                    C_GuardCS guard(&m_mutxVideoFileMap);
+                    tmpCurVideoFile->Status = COMPLETE;
+                    tmpCurVideoFile->DecodecPos = tmpCurVideoFile->Duration;
+                    loginfo("Create Mark Job Fail ,this task complete(uuid:%s path:%s) ",
+                            tmpCurVideoFile->UUID.c_str(),tmpCurVideoFile->FilePath.c_str());
+                    fit->second.reset();
+
+                }
+
+            }
         }
 
     }
@@ -1219,7 +1252,7 @@ bool CMainProcess::UpdateResultDownloadStat_DB(std::string uuid,std::string strS
 
 
     char sql[1024]={'\0'};
-    snprintf(sql,1024,"update app_monitor set fileStatus=1 where advert_id=\"%s\" "
+    snprintf(sql,1024,"update app_monitor set file_status=1 where advert_id=\"%s\" "
                       "and inspect_start_time=\'%s\'",uuid.c_str(),strStart.c_str());
 
     int nResult = ResultDB.execSQL(sql);

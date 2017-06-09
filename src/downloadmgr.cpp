@@ -112,6 +112,7 @@ bool CDownLoadMgr::AddDownTask(DownLoadInfoItem &taskitem)
     m_lstDownloadTask.push_back(taskitem);
     pthread_cond_signal(&m_cond);
     pthread_mutex_unlock(&m_mutx);
+
 }
 
 
@@ -467,30 +468,47 @@ void CDownLoadMgr::ProcessDownTask()
 *******************************************************************************/
 bool CDownLoadMgr::AddDayTask(struct tm &day)
 {
-    //计算当天的0点时间
-    int iCurTime = mktime(&day);
+    // 计算指定日期的0点时间
+
     char str[20]={'\0'};
     sprintf(str,"%d-%02d-%02d", 1900+day.tm_year,
         day.tm_mon+1, day.tm_mday);
     C_Time t2;
     std::string curday = std::string(str) + " 00:00:00";
     t2.setTimeStr(curday);
-    int iZeroTime = t2.getTimeInt() + m_startsec;
 
-    int endsec = std::min((int)iCurTime,t2.getTimeInt()+m_endsec);
-    for(;iZeroTime < endsec;iZeroTime += m_TimeStep)
+    // 计算指定日期的监播时间
+    int iZeroTime = t2.getTimeInt() + m_startsec;
+    int iCurTime = time(NULL);
+    int interval = m_endsec - m_startsec;
+
+    // 从指定日期到当前时间的
+    for(;iZeroTime<iCurTime;iZeroTime+=86400)
     {
-        DownLoadInfoItem item;
-        item.start = iZeroTime;
-        item.duration = m_TimeStep;
-        item.savepath = m_savepath;
-        if(item.start+item.duration>endsec)
+        int endsec = std::min((int)iCurTime,iZeroTime + interval);
+        int startsec = iZeroTime;
+        for(;startsec < endsec;startsec += m_TimeStep)
         {
-            break;
+            DownLoadInfoItem item;
+            item.start = startsec;
+            item.duration = m_TimeStep;
+            item.savepath = m_savepath;
+            if(item.start+item.duration>endsec)
+            {
+               break;
+            }
+            AddDownTask(item);
+            m_lastsec = item.start+item.duration;
+
+            C_Time logtm;
+            std::string strBegin;
+            logtm.setTimeInt(item.start);
+            logtm.getTimeStr(strBegin);
+            logdebug("Add history date into download task list:%s-%d",
+                     strBegin.c_str(),item.duration);
         }
-        AddDownTask(item);
-        m_lastsec = item.start+item.duration;
     }
+
 }
 
 

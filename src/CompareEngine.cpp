@@ -481,12 +481,20 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                 return -2;
             }
 
-            inspect->ptrfeature = new unsigned char[featruenum*FEATURE_SIZE];
-            inspect->featrueNum = featruenum;
-            inspect->bufsize = featruenum*FEATURE_SIZE;
-            inspect->width_hr = width;
-            inspect->height_hr = height;
-            m_featrueExtract.GetFeatureBuffer((char*)inspect->ptrfeature,inspect->bufsize);
+            if(featruenum>0)
+            {
+                inspect->ptrfeature = new unsigned char[featruenum*FEATURE_SIZE];
+                inspect->featrueNum = featruenum;
+                inspect->bufsize = featruenum*FEATURE_SIZE;
+                inspect->width_hr = width;
+                inspect->height_hr = height;
+                m_featrueExtract.GetFeatureBuffer((char*)inspect->ptrfeature,inspect->bufsize);
+            }
+            else
+            {
+                loginfo("Inspect iamge [%d] No featrue.");
+            }
+
         }
 
         // 和所有模板进行比对
@@ -560,10 +568,15 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
             {
                 PICTUR_ITEM * ptrPIC = *lit_compared;
                 float fpretest = static_cast<float>(inspect->featrueNum)/((ptrPIC->quantity+inspect->featrueNum)/2);
-                if(fpretest<m_threshold)
+                if(fpretest<m_threshold ||inspect->featrueNum==0 || ptrPIC->quantity==0)
                 {
                     loginfo("featrue too less not compare. [ %d(%d)-%s:%d(%d)]",index,inspect->featrueNum,
                             tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,ptrPIC->quantity);
+                    continue;
+                }
+
+                if(inspect->ptrfeature==NULL)
+                {
                     continue;
                 }
 
@@ -648,12 +661,18 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
             {
                 PICTUR_ITEM * ptrPIC = *lit;
                 float fpretest = static_cast<float>(inspect->featrueNum)/((ptrPIC->quantity+inspect->featrueNum)/2);
-                if(fpretest<m_threshold)
+                if(fpretest<m_threshold||inspect->featrueNum==0 || ptrPIC->quantity==0)
                 {
                     loginfo("featrue too less not compare. [ %d(%d)-%s:%d(%d)]",index,inspect->featrueNum,
                             ptrTemplet->ad_fileName,ptrPIC->picture_order,ptrPIC->quantity);
                     continue;
                 }
+
+                if(inspect->ptrfeature==NULL)
+                {
+                    continue;
+                }
+
 
                 int matchcnt;
                 unsigned int width =  (unsigned int)atoi(ptrTemplet->dstVideoWidth);
