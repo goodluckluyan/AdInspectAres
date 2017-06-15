@@ -186,7 +186,7 @@ bool CDownLoadMgr::AddDownTask()
 
 
     // 判断在不在放映时间内
-    if(iCurTime > iEndTime || iCurTime < iStarTime+m_TimeStep)
+    if(iCurTime > iEndTime + m_TimeStep || iCurTime < iStarTime + m_TimeStep)
     {
         C_Time cur,start,end;
         cur.setTimeInt(m_lastsec);

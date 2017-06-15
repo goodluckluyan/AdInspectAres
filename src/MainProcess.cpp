@@ -1,4 +1,5 @@
 ﻿#include <pthread.h>
+#include <locale.h>
 #include "threadManage/C_ThreadData.h"
 #include "threadManage/C_ThreadManage.h"
 #include "timeTask/C_TaskList.h"
@@ -61,14 +62,15 @@ CMainProcess::~CMainProcess(void)
     *******************************************************************************/
 bool CMainProcess::Init()
 {
-    //    Log("运行：CMainProcess::Init()");
+    loginfo("运行：CMainProcess::Init()");
     if (m_bInit)
     {
-        //        Log("警告：CMainProcess::Init重复的初始化！");
+        logerror("警告：CMainProcess::Init重复的初始化！");
         return false;
     }
 
 
+//  setlocale(LC_ALL, "CHS");
     C_Para *para = C_Para::GetInstance();
     para->ReadPara();
 
@@ -149,11 +151,16 @@ bool CMainProcess::Init()
     CFileEx::CreateFolder((char *)para->m_Mark_path.c_str());
     m_MarkTask.Initialize(para->m_Max_frame_count,(char *)para->m_Mark_path.c_str(),rt);
 
+    // 读取影院位置信息
+    GetCinemaInfo_DB();
+
     // 初始化比对模块
     for(int i=0;i<hallcnt;i++)
     {
         int hallno = allhall[i];
-        ptrCompareEngine ptr = std::tr1::shared_ptr<CompareEngine>(new CompareEngine(hallno,&m_TempletMgr,m_strCity,m_strCinemaName,&m_mutxDelTemplet));
+        ptrCompareEngine ptr = std::tr1::shared_ptr<CompareEngine>(
+                    new CompareEngine(hallno,&m_TempletMgr,m_strCity.c_str(),m_strCinemaName.c_str(),
+                                      &m_mutxDelTemplet));
         CompareEngine::SetBCFun(this,BC_CompareComplete);
         ptr->Init(para->m_DB_IP,para->m_DB_User,para->m_DB_Passwd,
                   "oristarmr",para->m_DB_Port,para->m_CompareRect);
@@ -162,7 +169,7 @@ bool CMainProcess::Init()
 
     }
 
-    GetCinemaInfo_DB();
+
 
     // AddInitTask
     C_Time curtm;
@@ -444,7 +451,9 @@ int CMainProcess::TaskDispatch()
         {
             C_GuardCS guard(&m_mutxVideoFileMap);
             ptrCompareEngine& ptr = fit->second;
-            if(ptr->Compare(m_mapCurTaskFile[hallid]->UUID,m_mapCurTaskFile[hallid]->Start,
+            if(ptr->Compare(m_mapCurTaskFile[hallid]->UUID,
+                            m_mapCurTaskFile[hallid]->Start,
+                            m_mapCurTaskFile[hallid]->DecodecPos,
                             static_cast<FrameBufferLoop*>(m_mapCurTaskFile[hallid]->ptrBufferLoop))==0)
             {
                 m_mapCurTaskFile[hallid]->Status=COMPARE;
@@ -883,6 +892,7 @@ bool CMainProcess::GetCinemaInfo_DB()
     m_strCity = query.getStringField("city");
     m_strCinemaName = query.getStringField("cinema_name");
     loginfo("GetCinemaInfo_DB city:%s cinema name:%s!\n",m_strCity.c_str(),m_strCinemaName.c_str());
+
     return true;
 }
 

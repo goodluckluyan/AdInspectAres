@@ -52,7 +52,7 @@ _SearchArea::~_SearchArea()
 }
 
 CompareEngine::CompareEngine(int hallid,TempletManager *ptrTempletMgr,
-                             std::string city,std::string cinema_name,C_CS *pCS)
+                             const char* city,const char* cinema_name,C_CS *pCS)
 {
     m_hallid = hallid;
     m_ptrTempletMgr = ptrTempletMgr;
@@ -61,6 +61,8 @@ CompareEngine::CompareEngine(int hallid,TempletManager *ptrTempletMgr,
     m_City = city;
     m_CinemaName = cinema_name;
     m_pTempletMgrMutx = pCS;
+    m_curlongbiao_pos = 0 ;
+    m_curtask_start_tm = 0;
 }
 
 CompareEngine::~CompareEngine()
@@ -138,7 +140,7 @@ int CompareEngine::Init(std::string &dbip,std::string &dbuser,std::string &passw
 * ------------------------------------------------------------------------------
 * 2017-04-29 	卢岩	      创建
 *******************************************************************************/
-int CompareEngine::Compare(std::string &taskid,time_t tm,FrameBufferLoop *fbl)
+int CompareEngine::Compare(std::string &taskid,time_t tm,time_t longbiao_pos,FrameBufferLoop *fbl)
 {
     if(m_ptrTempletMgr == NULL)
     {
@@ -148,6 +150,7 @@ int CompareEngine::Compare(std::string &taskid,time_t tm,FrameBufferLoop *fbl)
     CreateSearchArea(fbl);
     m_curtaskid = taskid;
     m_curtask_start_tm = tm;
+    m_curlongbiao_pos = longbiao_pos;
     Run();
     return 0;
 }
@@ -400,9 +403,38 @@ int CompareEngine::Routine()
         }
     }
 
-    // 结果保存到数据库
+    // 保存多播图片
+//    int sslen=vecss.size();
+//    for(int i = 0 ;i < sslen ; i++)
+//    {
+//        suspicious_show &ss = vecss[i];
+//        TempletMatch tm;
+//        tm.inspect_index_start = ss.start;
+//        tm.inspect_index_end = ss.end;
+
+//        std::string videopath;
+//        if( para->m_match_store_path.rfind("/")!= para->m_match_store_path.size()-1)
+//        {
+//            videopath = para->m_match_store_path+"/";
+//        }
+//        else
+//        {
+//            videopath = para->m_match_store_path  ;
+//        }
+
+//        char idbuf[64]={'\0'};
+//        snprintf(idbuf,64,"%s-%d",m_curtaskid.c_str(),i+1);
+//        videopath = videopath + "Result/" + std::string(idbuf);
+//        tm.resultpath = videopath;
+//        ss.imgresult_path = videopath;
+//        SaveInspectImage(tm);
+//    }
+
+    // 结果保存到数据库,写两份AdInspect和oristarmr各写一份
     InsertResult_DB();
-    InsertSuspiciousShow_DB(vecss);
+    InsertResultToADInspect_DB();
+//    InsertSuspiciousShow_DB(vecss);
+    InsertSuspiciousShowToAdInspect_DB(vecss);
 
     // 回调函数
     if(NULL != m_ptrCompareDoneFun)
@@ -522,9 +554,9 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
 //                    lsCompared.push_back(*olit);
 //                }
 
-//                for(int i = 0;tlit != tm.ptrTemplet->picture_list.end() && i<comparecnt ;i++,olit++)
+//                for(int i = 0;tlit != tm.ptrTemplet->picture_list.end() && i<comparecnt ;i++,tlit++)
 //                {
-//                    lsCompared.push_back(*olit);
+//                    lsCompared.push_back(*tlit);
 //                }
 
                 PICTURE_LIST::iterator lit =  tm.ptrTemplet->picture_list.begin();
@@ -541,17 +573,15 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                     lsCompared.push_back(*olit);
                 }
 
-                for(int i = 0;tlit != qlit && i<comparecnt ;i++,olit++)
+                for(int i = 0;tlit != qlit && i<comparecnt ;i++,tlit++)
                 {
-                    lsCompared.push_back(*olit);
+                    lsCompared.push_back(*tlit);
                 }
 
-                for(int i = 0;qlit != tm.ptrTemplet->picture_list.end() && i<comparecnt ;i++,olit++)
+                for(int i = 0;qlit != tm.ptrTemplet->picture_list.end() && i<comparecnt ;i++,qlit++)
                 {
-                    lsCompared.push_back(*olit);
+                    lsCompared.push_back(*qlit);
                 }
-
-
             }
             else
             {
@@ -975,10 +1005,27 @@ int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecs
          }
     }
 
-
-    // 计算广告间的时长，大于5秒则认为可疑播放
+    // 比较龙标时间和倒一的广告之间的时间间隔
     C_Para *para = C_Para::GetInstance();
     int calc_cnt = vecTmp.size();
+    if(calc_cnt > 0)
+    {
+        if(vecTmp[0].second.inspect_ts_end > 0 && m_curlongbiao_pos > 0)
+        {
+            int interval= m_curlongbiao_pos-6-vecTmp[0].second.inspect_ts_end-1;
+            if(interval >= para->m_InvalidateShowThresholdSec)
+            {
+                suspicious_show ss;
+                ss.adback = "longbiao";
+                ss.adprev = vecTmp[0].second.ptrTemplet->ad_fileName;
+                ss.start = vecTmp[0].second.inspect_ts_end + 1;
+                ss.end = m_curlongbiao_pos - 6;// 比对成功的一般为龙标的后4秒
+                vecss.push_back(ss);
+            }
+        }
+    }
+
+    // 计算广告间的时长，大于5秒则认为可疑播放
     for(int i = 1 ;i<calc_cnt;i++)
     {
         unsigned int interval;
@@ -1091,12 +1138,12 @@ bool CompareEngine::InsertMatch_DB()
              int nResult = MatchDB.execSQL(sql);
              if(nResult != -1)
              {
-                 loginfo("Save match result successful!(%s)",sql);
+                 logdebug("Save match result successful!(%s)",sql);
 
              }
              else
              {
-                 loginfo("Save match result failed!(%s)",sql);
+                 logerror("Save match result failed!(%s)",sql);
 
              }
         }
@@ -1115,13 +1162,13 @@ bool CompareEngine::InsertMatch_DB()
 * ------------------------------------------------------------------------------
 * 2017-04-29 	卢岩	      创建
 *******************************************************************************/
-bool CompareEngine::InsertResult_DB()
+bool CompareEngine::InsertResultToADInspect_DB()
 {
 
     CppMySQL3DB CompareResultDB;
 
     if(CompareResultDB.open(m_strDB_IP.c_str(),m_strDB_User.c_str(),
-                            m_strPasswd.c_str(),"oristarmr",m_nPort) == -1)
+                            m_strPasswd.c_str(),"AdInspect",m_nPort) == -1)
     {
             printf(0,"mysql open failed!\n");
             return -1;
@@ -1204,7 +1251,7 @@ bool CompareEngine::InsertResult_DB()
         }
 
          snprintf(sql,1024,"insert into "
-                          "app_monitor(id,advert_id,create_time,sortIdx,advert_back,"
+                          "inspect_result(id,advert_id,create_time,sortIdx,advert_back,"
                            "advert_previous,cinema_city,cinema_name,videopath,compare_imgpath,hall_no,"
                            "inspect_end_time,inspect_order,inspect_start_time,monitor_status,imglen) "
                            "values(\"%s\",\"%s\",\"%s\",%u,\"%s\","
@@ -1217,7 +1264,131 @@ bool CompareEngine::InsertResult_DB()
          int nResult = CompareResultDB.execSQL(sql);
          if(nResult != -1)
          {
-             loginfo("Save compare result successful!(%s)",sql);
+             logdebug("InsertResultToADInspect_DB::Save compare result successful!(%s)",sql);
+         }
+         else
+         {
+             logerror("InsertResultToADInspect_DB::Save compare result failed!(%s)",sql);
+         }
+
+    }
+    return true;
+}
+
+/*******************************************************************************
+* 函数名称：	InsertResult_DB
+* 功能描述：	结果入库
+* 输入参数：
+* 输出参数：
+* 返 回 值：	true - 成功，false - 失败
+* 其它说明：
+* 修改日期		修改人	      修改内容
+* ------------------------------------------------------------------------------
+* 2017-04-29 	卢岩	      创建
+*******************************************************************************/
+bool CompareEngine::InsertResult_DB()
+{
+
+    CppMySQL3DB CompareResultDB;
+
+    if(CompareResultDB.open(m_strDB_IP.c_str(),m_strDB_User.c_str(),
+                            m_strPasswd.c_str(),"oristarmr",m_nPort) == -1)
+    {
+            printf(0,"mysql open failed!\n");
+            return -1;
+    }
+
+    std::map<std::string,TempletMatch>::iterator it = m_mapTempletMatch.begin();
+    for(;it != m_mapTempletMatch.end();it++)
+    {
+        TempletMatch&tm = it->second;
+        if(tm.vecMatch.size()==0 || tm.inspect_index_start ==0)
+        {
+            continue;
+        }
+
+        C_Para *para = C_Para::GetInstance();
+        char sql[1024]={'\0'};
+        char buf[128]={'\0'};
+        snprintf(buf,128,"%s-%s",m_curtaskid.c_str(),tm.ptrTemplet->uuid);
+        std::string  id = buf;
+
+        C_Time curtm;
+        curtm.setCurTime();
+        std::string strCurtime;
+        curtm.getTimeStr(strCurtime);
+
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        unsigned long msec =  tv.tv_sec*1000+tv.tv_usec/1000;
+
+        std::string videopath;
+        if(  tm.resultpath.rfind("/")!=  tm.resultpath.size()-1)
+        {
+            videopath =  tm.resultpath+"/";
+        }
+        else
+        {
+            videopath =  tm.resultpath;
+        }
+
+        std::string head = para->m_match_store_path;
+        if( head.rfind("/")!= head.size()-1)
+        {
+            head += "/";
+        }
+
+        std::string vediofullpath,fixbasepath;
+        fixbasepath = videopath.substr(vediofullpath.find(head)+head.size()+1);
+        vediofullpath =fixbasepath + tm.vediofilename + ".mp4";
+        std::string compareimgpath = fixbasepath;
+
+        C_Time starttm,endtm;
+        starttm.setTimeInt(tm.inspect_ts_start);
+        endtm.setTimeInt(tm.inspect_ts_end);
+        std::string strStart;
+        std::string strEnd;
+        starttm.getTimeStr(strStart);
+        endtm.getTimeStr(strEnd);
+
+        int normal_order = tm.ptrTemplet->ad_order;
+        int order_status = 0;
+        if(normal_order != 0 && normal_order==tm.showorder)
+        {
+           // 位序正常
+           order_status = 1;
+        }
+        else if(normal_order != 0 && normal_order!=tm.showorder)
+        {
+            // 位序异常
+           order_status = 2;
+        }
+        else if(normal_order == 0)
+        {
+            // 位序正常
+            order_status = 1;
+        }
+        else
+        {
+            // 位序异常
+            order_status = 2;
+        }
+
+         snprintf(sql,1024,"insert into "
+                           "app_monitor(id,advert_id,create_time,sortIdx,advert_back,"
+                           "advert_previous,cinema_city,cinema_name,videopath,compare_imgpath,hall_no,"
+                           "inspect_end_time,inspect_order,inspect_start_time,monitor_status,imglen) "
+                           "values(REPLACE(UUID(),'-',''),\"%s\",\"%s\",%u,\"%s\","
+                           "\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%d,"
+                           "\"%s\",%d,\"%s\",%d,%d)",
+                  tm.ptrTemplet->uuid,strCurtime.c_str(),msec,tm.backAd.c_str(),
+                  tm.preAd.c_str(),m_City.c_str(),m_CinemaName.c_str(),vediofullpath.c_str(),compareimgpath.c_str(),m_hallid,
+                  strEnd.c_str(),tm.showorder,strStart.c_str(),order_status,tm.inspect_index_end-tm.inspect_index_start+1
+                  );
+         int nResult = CompareResultDB.execSQL(sql);
+         if(nResult != -1)
+         {
+             logdebug("Save compare result successful!(%s)",sql);
 
          }
          else
@@ -1247,12 +1418,79 @@ bool CompareEngine::InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss)
     CppMySQL3DB SuspiciousResultDB;
 
     if(SuspiciousResultDB.open(m_strDB_IP.c_str(),m_strDB_User.c_str(),
+                            m_strPasswd.c_str(),"oristarmr",m_nPort) == -1)
+    {
+            printf(0,"mysql open failed!\n");
+            return false;
+    }
+
+    C_Time curtm;
+    curtm.setCurTime();
+    std::string strtm;
+    curtm.getTimeStr(strtm);
+    for(int i = 0 ;i<vecss.size();i++)
+    {
+        char sql[1024]={'\0'};
+        suspicious_show &ss = vecss[i];
+
+        C_Time starttm,endtm;
+        starttm.setTimeInt(ss.start);
+        endtm.setTimeInt(ss.end);
+        std::string strStart;
+        std::string strEnd;
+        starttm.getTimeStr(strStart);
+        endtm.getTimeStr(strEnd);
+        int imgsize =  ss.end - ss.start + 1;
+
+        char idbuf[64]={'\0'};
+        snprintf(idbuf,64,"%s-%d",m_curtaskid.c_str(),i+1);
+        snprintf(sql,1024,"insert into app_monitor_multiple(id,create_time,advert_back,advert_previous,"
+                          "compare_imgpath,hall_no,inspect_end_time,inspect_start_time,monitor_status,imglen) "
+                          "values(\"%s\",\'%s\',\"%s\",\"%s\",\"%s\",%d,\'%s\',\'%s\',%d,%d)",
+                 idbuf,strtm.c_str(),ss.adback.c_str(),ss.adprev.c_str(),
+                 ss.imgresult_path.c_str(),m_hallid, strEnd.c_str(),strStart.c_str(),4,imgsize);// 多播
+        int nResult = SuspiciousResultDB.execSQL(sql);
+        if(nResult != -1)
+        {
+            logdebug("Save suspicious show successful!(%s)",sql);
+        }
+        else
+        {
+            logerror("Save suspicious show failed!(%s)",sql);
+        }
+
+    }
+
+    return true;
+}
+
+/*******************************************************************************
+* 函数名称：	InsertSuspiciousShow_DB
+* 功能描述：	可疑播放入库
+* 输入参数：
+* 输出参数：
+* 返 回 值：	true - 成功，false - 失败
+* 其它说明：
+* 修改日期		修改人	      修改内容
+* ------------------------------------------------------------------------------
+* 2017-04-29 	卢岩	      创建
+*******************************************************************************/
+bool CompareEngine::InsertSuspiciousShowToAdInspect_DB(std::vector<suspicious_show> &vecss)
+{
+
+    CppMySQL3DB SuspiciousResultDB;
+
+    if(SuspiciousResultDB.open(m_strDB_IP.c_str(),m_strDB_User.c_str(),
                             m_strPasswd.c_str(),"AdInspect",m_nPort) == -1)
     {
             printf(0,"mysql open failed!\n");
             return false;
     }
 
+    C_Time curtm;
+    curtm.setCurTime();
+    std::string strtm;
+    curtm.getTimeStr(strtm);
     for(int i = 0 ;i<vecss.size();i++)
     {
         char sql[1024]={'\0'};
@@ -1266,19 +1504,19 @@ bool CompareEngine::InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss)
         starttm.getTimeStr(strStart);
         endtm.getTimeStr(strEnd);
 
-        snprintf(sql,1024,"insert into suspicious_show(task_id,adback,adprev,start,end) "
-                          "values(\"%s\",\"%s\",\"%s\",\'%s\',\'%s\')",
+        snprintf(sql,1024,"insert into suspicious_show(task_id,adback,adprev,start,end,time) "
+                          "values(\"%s\",\"%s\",\"%s\",\'%s\',\'%s\',\'%s\')",
                  m_curtaskid.c_str(),ss.adback.c_str(),ss.adprev.c_str(),
-                 strStart.c_str(),strEnd.c_str());
+                 strStart.c_str(),strEnd.c_str(),strtm.c_str());
         int nResult = SuspiciousResultDB.execSQL(sql);
         if(nResult != -1)
         {
-            loginfo("Save suspicious show successful!(%s)",sql);
+            logdebug("Save suspicious show successful!(%s)",sql);
 
         }
         else
         {
-            loginfo("Save suspicious show failed!(%s)",sql);
+            logerror("Save suspicious show failed!(%s)",sql);
 
         }
 
@@ -1286,6 +1524,7 @@ bool CompareEngine::InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss)
 
     return true;
 }
+
 
 /*******************************************************************************
 * 函数名称：	SaveInspectImage
@@ -1316,7 +1555,14 @@ bool CompareEngine::SaveInspectImage(TempletMatch &tm)
             // 图片路径和文件命名方式：结果目录+模板uuid(广告表id)+taskid(hallid_cpos_start_duration)
             // +name(hallid+广告名称+开始时间+序号)
             char name[256]={'\0'};
-            snprintf(name,256,"%s-%d.jpg",tm.ptrTemplet->uuid,index);
+            if(tm.ptrTemplet!=NULL)
+            {
+                snprintf(name,256,"%s-%d.jpg",tm.ptrTemplet->uuid,index);
+            }
+            else
+            {
+                snprintf(name,256,"%s-%d.jpg",m_curtaskid.c_str(),index);
+            }
 
             std::string savepath = tm.resultpath;
             if(savepath.rfind("/")!=savepath.size()-1)

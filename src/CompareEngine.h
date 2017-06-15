@@ -147,6 +147,7 @@ struct suspicious_show
     std::string adprev;
     unsigned int start;
     unsigned int end;
+    std::string imgresult_path;
 };
 
 
@@ -154,7 +155,7 @@ class CompareEngine :public OS_Thread
 {
 public:
     CompareEngine(int hallid,TempletManager *ptrTempletMgr,
-                   std::string city,std::string cinema_name,C_CS *pCS);
+                   const char* city,const char* cinema_name,C_CS *pCS);
     ~CompareEngine();
 
     // 设置比对完成回调函数
@@ -165,7 +166,7 @@ public:
                  int port,C_Para::Rect &rect);
 
     // 比较
-    int Compare(std::string &taskid,time_t tm,FrameBufferLoop *);
+    int Compare(std::string &taskid,time_t tm,time_t longbiao_pos,FrameBufferLoop *);
 
     // 线程函数
     int Routine();
@@ -189,12 +190,17 @@ private:
     // 结果入库
     bool InsertResult_DB();
 
+    // 结果入AdInspect.inspect_result库
+    bool InsertResultToADInspect_DB();
+
     // 保存匹配记录
     bool InsertMatch_DB();
 
+    // 可疑播放入AdInspect.inspect_result库
+    bool InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss);
 
     // 可疑播放入库
-    bool InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss);
+    bool InsertSuspiciousShowToAdInspect_DB(std::vector<suspicious_show> &vecss);
 
     // 计算匹配权重的均值
     float CalcAvgMatchWeight( std::vector<MatchItem> vecMatch,float &max);
@@ -247,6 +253,7 @@ private:
     std::string m_strDB_name;
     int m_nPort ;
     unsigned int  m_curtask_start_tm;
+    unsigned int  m_curlongbiao_pos;
 
 
 
