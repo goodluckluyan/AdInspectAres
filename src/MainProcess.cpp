@@ -115,7 +115,7 @@ bool CMainProcess::Init()
     db_login.port = para->m_DB_Port;
 
     m_DownloadMgr.SetDownloadCompete_BCFun(static_cast<void*>(this),BC_VideoDownLoadComplete);
-    m_DownloadMgr.Init(3,1,db_login,"127.0.0.1",12343,para->m_VideoFile_SplitSec);
+    m_DownloadMgr.Init(para->m_HallID,1,db_login,"127.0.0.1",12343,para->m_VideoFile_SplitSec);
 
     if(para->m_StartDate.empty())
     {
@@ -965,8 +965,8 @@ int CMainProcess::CreateTempletFeatrue()
         {
              strcpy(item->type,"surf");
         }
-        sprintf(item->dstVideoWidth,"%d",para->m_Decode_width);
-        sprintf(item->dstVideoHeight,"%d",para->m_Decode_height);
+        sprintf(item->dstVideoWidth,"%d",para->m_Decode_Templet_width);
+        sprintf(item->dstVideoHeight,"%d",para->m_Decode_Templet_height);
         sprintf(item->ad_order,"%d",task->ShowOder);
         strcpy(item->featureFilePath,TempletPath.c_str());
 

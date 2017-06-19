@@ -452,7 +452,7 @@ int CompareEngine::Routine()
 
     time_t costtm_e;
     time(&costtm_e);
-    loginfo("Finish Compare (cost time:%d sec)......",costtm_e - costtm_s);
+    loginfo("Finish Compare %s(cost time:%d sec)......",m_curtaskid.c_str(),costtm_e - costtm_s);
 
     return 0;
 }
@@ -631,13 +631,9 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
 
                 float weight = static_cast<float>(matchcnt)/((ptrPIC->quantity+inspect->featrueNum)/2);
 
-                // 广告名有中文会乱码，则转换
-//                CodeConverter conv("gb2312","utf-8");
-//                char buf[256]={'\n'};
-//                conv.convert(tm.ptrTemplet->ad_fileName,strlen(tm.ptrTemplet->ad_fileName),
-//                             buf,256);
-//                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
-//                        tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
+
+                logdebug("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
+                        tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
                 if(weight >= m_threshold && matchcnt > m_match_count_threshold)
                 {
                     loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
@@ -680,10 +676,6 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
         {
             _TEMPLET_ITEM* ptrTemplet = *it;
 
-//            CodeConverter conv("gb2312","utf-8");
-//            char buf[256]={'\n'};
-//            conv.convert(ptrTemplet->ad_fileName,strlen(ptrTemplet->ad_fileName),
-//                         buf,256);
 
             loginfo("......Compare inspect image %d - %s",index,ptrTemplet->ad_fileName);
             PICTURE_LIST::iterator lit = ptrTemplet->picture_list.begin();
@@ -724,8 +716,8 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                                                 );
 
                 float weight = static_cast<float>(matchcnt)/((ptrPIC->quantity+inspect->featrueNum)/2);
-//                loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
-//                        ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
+                logdebug("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
+                        ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
 
                 if(weight >= m_threshold && matchcnt > m_match_count_threshold)
                 {

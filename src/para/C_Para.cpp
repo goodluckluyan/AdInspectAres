@@ -132,6 +132,15 @@ int C_Para::ReadPara()
     m_nWebServicePort = m_nWebServicePort <= 0 ?12342 :m_nWebServicePort;
     loginfo("reading config ,WebService Port :%d",m_nWebServicePort);
 
+    memset(a,0,64);
+    iResult = config.readvalue("PARA","HallID",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    m_HallID = atoi(a) ;
+    loginfo("reading config ,HallID:%d",m_HallID);
+
 	memset(a,0,64);
     iResult = config.readvalue("PARA","AdShowSec",a,strInipath.c_str());
 	if(iResult != 0)
@@ -240,8 +249,26 @@ int C_Para::ReadPara()
     {
         return iResult;
     }
-    m_Decode_height = atoi(a) ;
+    m_Decode_height = atoi(a);
     loginfo("reading config ,Decode height:%d",m_Decode_height);
+
+    memset(a,0,64);
+    iResult = config.readvalue("PARA","DecodeTempletWidth",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    m_Decode_Templet_width = atoi(a);
+    loginfo("reading config ,Decode Templet Width:%d",m_Decode_Templet_width);
+
+    memset(a,0,64);
+    iResult = config.readvalue("PARA","DecodeTempletHeight",a,strInipath.c_str());
+    if(iResult != 0)
+    {
+        return iResult;
+    }
+    m_Decode_Templet_height = atoi(a);
+    loginfo("reading config ,Decode Templet Height:%d",m_Decode_Templet_height);
 
     memset(a,0,64);
     iResult = config.readvalue("PARA","IsGray",a,strInipath.c_str());

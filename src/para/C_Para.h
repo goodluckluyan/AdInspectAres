@@ -120,6 +120,11 @@ public:
     int m_Decode_width;
     int m_Decode_height;
 
+    // 模板分辨率调整
+    int m_Decode_Templet_width;
+    int m_Decode_Templet_height;
+
+
     // 彩色/灰度格式设置
     bool m_bIsGray;
 
@@ -161,6 +166,9 @@ public:
 
     // 开始监播时间
     std::string m_StartDate;
+
+    // 监播厅
+    int m_HallID;
 
 private:
     static C_Para *m_pInstance;
