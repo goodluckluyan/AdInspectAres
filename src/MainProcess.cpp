@@ -135,13 +135,13 @@ bool CMainProcess::Init()
 
 
     // 初始化当前龙标检测任务表
-    int allhall[1] = {3};
-    int hallcnt = sizeof(allhall)/sizeof(int);
-    for(int i=0;i<hallcnt;i++)
-    {
+//    int allhall[1] = {3};
+//    int hallcnt = sizeof(allhall)/sizeof(int);
+//    for(int i=0;i<hallcnt;i++)
+//    {
         ptrVideoFile nullptr;
-        m_mapCurTaskFile.insert(std::pair<int,ptrVideoFile>(allhall[i],nullptr));
-    }
+        m_mapCurTaskFile.insert(std::pair<int,ptrVideoFile>(para->m_HallID,nullptr));
+//    }
 
     Rect rt;
     rt.left = para->m_CompareRect.left;
@@ -149,15 +149,16 @@ bool CMainProcess::Init()
     rt.right = para->m_CompareRect.right;
     rt.bottom = para->m_CompareRect.bottom;
     CFileEx::CreateFolder((char *)para->m_Mark_path.c_str());
-    m_MarkTask.Initialize(para->m_Max_frame_count,(char *)para->m_Mark_path.c_str(),rt);
+    m_MarkTask.Initialize(para->m_Max_frame_count,(char *)para->m_Mark_path.c_str(),rt,
+                          para->m_WeightThreshold,para->m_MatchCountThreshold);
 
     // 读取影院位置信息
     GetCinemaInfo_DB();
 
     // 初始化比对模块
-    for(int i=0;i<hallcnt;i++)
-    {
-        int hallno = allhall[i];
+//    for(int i=0;i<hallcnt;i++)
+//    {
+        int hallno = para->m_HallID;//allhall[i];
         ptrCompareEngine ptr = std::tr1::shared_ptr<CompareEngine>(
                     new CompareEngine(hallno,&m_TempletMgr,m_strCity.c_str(),m_strCinemaName.c_str(),
                                       &m_mutxDelTemplet));
@@ -165,11 +166,7 @@ bool CMainProcess::Init()
         ptr->Init(para->m_DB_IP,para->m_DB_User,para->m_DB_Passwd,
                   "oristarmr",para->m_DB_Port,para->m_CompareRect);
         m_mapCompareEnginePtr.insert(std::pair<int,ptrCompareEngine>(hallno,ptr));
-
-
-    }
-
-
+//    }
 
     // AddInitTask
     C_Time curtm;
@@ -562,6 +559,7 @@ void CMainProcess::Print(int enType)
     *******************************************************************************/
 int CMainProcess::WS_DelInspectModule(std::string &uuid)
 {
+   loginfo("ws DelInspectModule(uuid:%s)\n",uuid.c_str());
    m_mutxDelTemplet.EnterCS();
    int iRet = m_TempletMgr.DeleteTempletByUuid(const_cast<char*>(uuid.c_str()));
    m_mutxDelTemplet.LeaveCS();
@@ -582,7 +580,7 @@ int CMainProcess::WS_DelInspectModule(std::string &uuid)
     *  2017-04-29 	 卢岩	      创建
     *******************************************************************************/
 int CMainProcess::WS_AddInspectModule(std::string &id,string &OrderNO,string &AdName,int CinemaNum,std::string& start,
-                                      std::string & end,int ShowOder,int Type,std::string &ModulePath )
+                                      std::string & end,int ShowOder,int Type,int ShowType,std::string &ModulePath )
 {
 
 
@@ -594,9 +592,10 @@ int CMainProcess::WS_AddInspectModule(std::string &id,string &OrderNO,string &Ad
     std::string mp4path =basepath + ModulePath;
 
     loginfo("ws invoke(id:%s OriderNo:%s AdName:%s CinemaNum:%d)\n",id.c_str(),OrderNO.c_str(),AdName.c_str(),CinemaNum);
-    loginfo("ws invoke(start:%s end:%s showorder:%d type:%d modulepath:%s)\n",start.c_str(),end.c_str(),ShowOder,Type,mp4path.c_str());
+    loginfo("ws invoke(start:%s end:%s showorder:%d type:%d showtype:%d modulepath:%s)\n",start.c_str(),end.c_str(),ShowOder,Type,ShowType,mp4path.c_str());
     m_mutxCreateTemple.EnterCS();
-    ptrTempletInfo ptr(new TempletInfos(id,OrderNO,AdName,CinemaNum,start,end,ShowOder,Type,mp4path));
+    ptrTempletInfo ptr(new TempletInfos(id,OrderNO,AdName,CinemaNum,start,end,
+                                        ShowOder,Type,ShowType,mp4path));
     m_lstCreateTempleTask.push_back(ptr);
     pthread_cond_signal(&m_condCreateTemple);
     m_mutxCreateTemple.LeaveCS();
@@ -713,8 +712,9 @@ int  CMainProcess::BC_CheckLongbiaoComplete(void *userdata,void *pmarkjobresult)
     * ------------------------------------------------------------------------------
     *  2017-04-29 	 卢岩	      创建
     *******************************************************************************/
-int CMainProcess::BC_CompareComplete(void *ptr,
-                                     std::string &taskid,std::map<std::string,TempletMatch> &templetResult)
+int CMainProcess::BC_CompareComplete(void *ptr,std::string &taskid,
+                                     std::map<std::string,TempletMatch> &templetResult,
+                                     std::vector<suspicious_show> &vecss)
 {
     CMainProcess *pthis = (CMainProcess*)ptr;
     std::map<std::string,TempletMatch>::iterator it = templetResult.begin();
@@ -734,7 +734,23 @@ int CMainProcess::BC_CompareComplete(void *ptr,
                     dlii.start,dlii.duration,std::string(dlii.savepath+"/"+ dlii.filename).c_str());
         }
     }
+
+    for(int i = 0 ;i < vecss.size();i++)
+    {
+       suspicious_show &ss = vecss[i];
+       DownLoadInfoItem dlii ;
+       dlii.start = ss.start;
+       dlii.duration = ss.end - ss.start + 1;
+       dlii.savepath = ss.imgresult_path;
+       dlii.filename = ss.vedio_filename;
+
+       pthis->m_DownloadMgr.AddResultSampleDownTask(dlii);
+       loginfo("Compare complete,Downlaod suspicious show vedio file(start:%d duration:%d path:%s) ",
+               dlii.start,dlii.duration,std::string(dlii.savepath+"/"+ dlii.filename).c_str());
+    }
+
     pthis->CompareComplete(taskid);
+
     return 0;
 }
 
@@ -757,6 +773,7 @@ int CMainProcess::CompareComplete(std::string &taskid)
             }
 
             // 设置为完成，完成标识所有操作已经完成，清空当前指针
+            int longbiaopos = 0;
             if(tmpCurVideoFile != NULL && abs(tmpCurVideoFile->DecodecPos - tmpCurVideoFile->Duration)<=10)
             {
                 C_GuardCS gardv(&m_mutxVideoFileMap);
@@ -764,6 +781,7 @@ int CMainProcess::CompareComplete(std::string &taskid)
                 loginfo("Compare complete ,all task complete(uuid:%s path:%s) ",
                         tmpCurVideoFile->UUID.c_str(),tmpCurVideoFile->FilePath.c_str());
                 fit->second.reset();
+                longbiaopos = tmpCurVideoFile->DecodecPos;
 
             }
             else if(tmpCurVideoFile != NULL && abs(tmpCurVideoFile->DecodecPos - tmpCurVideoFile->Duration)>10)
@@ -771,6 +789,7 @@ int CMainProcess::CompareComplete(std::string &taskid)
                 C_GuardCS gardv(&m_mutxVideoFileMap);
 
                 // 对没有检测完成的文件设置为继续检测龙标，清空当前指针
+                longbiaopos = tmpCurVideoFile->DecodecPos;
                 tmpCurVideoFile->DecodecPos+=10;
                 if(tmpCurVideoFile->DecodecPos > tmpCurVideoFile->Duration)
                 {
@@ -794,7 +813,7 @@ int CMainProcess::CompareComplete(std::string &taskid)
 
             // 记录龙标时间点
             InsertLongbiao_DB(tmpCurVideoFile->UUID,
-                              tmpCurVideoFile->Start+tmpCurVideoFile->DecodecPos-1,
+                              tmpCurVideoFile->Start+longbiaopos-1,
                               hallnum
                               );
         }
@@ -968,6 +987,7 @@ int CMainProcess::CreateTempletFeatrue()
         sprintf(item->dstVideoWidth,"%d",para->m_Decode_Templet_width);
         sprintf(item->dstVideoHeight,"%d",para->m_Decode_Templet_height);
         sprintf(item->ad_order,"%d",task->ShowOder);
+        sprintf(item->show_type,"%s",task->ShowType==2?"cinema_ad":"pre_ad");
         strcpy(item->featureFilePath,TempletPath.c_str());
 
         // 执行创建
@@ -1020,6 +1040,7 @@ void CMainProcess::NewTableItemSpace(TASK_ITEM **task_item)
     (*task_item)->dstVideoWidth=new char[BUFF_SIZE_50];
     (*task_item)->realDuration=new char[BUFF_SIZE_50];
     (*task_item)->ad_order=new char[BUFF_SIZE_50];
+    (*task_item)->show_type=new char[BUFF_SIZE_50];
     (*task_item)->featureFilePath=new char[BUFF_SIZE_255];
 
     ClearTableItemSpace(*task_item);
@@ -1139,6 +1160,12 @@ void CMainProcess::DeleteItemSpace(TASK_ITEM **task_item)
         (*task_item)->ad_order=NULL;
     }
 
+    if(NULL!=(*task_item)->show_type)
+    {
+        delete [] (*task_item)->show_type;
+        (*task_item)->show_type=NULL;
+    }
+
     if(NULL!=(*task_item)->featureFilePath)
     {
         delete [] (*task_item)->featureFilePath;
@@ -1228,6 +1255,10 @@ void CMainProcess::ClearTableItemSpace(TASK_ITEM *task_item)
     if(NULL!=task_item->ad_order)
     {
         memset(task_item->ad_order,0,BUFF_SIZE_50);
+    }
+    if(NULL!=task_item->show_type)
+    {
+         memset(task_item->show_type,0,BUFF_SIZE_50);
     }
     if(NULL!=task_item->featureFilePath)
     {

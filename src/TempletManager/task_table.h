@@ -1,4 +1,4 @@
-#ifndef _TASK_TABLE_H
+﻿#ifndef _TASK_TABLE_H
 #define _TASK_TABLE_H
 
 #include <stdio.h>
@@ -88,7 +88,7 @@ private:
 
 
 private:
-	COLUMN_VALUE_MAP m_task_column_value_map[20];
+	COLUMN_VALUE_MAP m_task_column_value_map[21];
 
 };
 

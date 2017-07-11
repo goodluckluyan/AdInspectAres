@@ -1,4 +1,4 @@
-///  author:huangkui
+﻿///  author:huangkui
 
 #ifndef _PUB_H_
 #define _PUB_H_

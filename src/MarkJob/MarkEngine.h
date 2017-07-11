@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+
 typedef struct  __rect
 {
     __rect()
@@ -61,11 +62,33 @@ typedef struct __Imgfeatrue
    std::string fpath;                      // 图片特征文件路径
 }ImgFeatrue;
 
+typedef struct __EntrpyInfo
+{
+    unsigned int entrpy_tm;
+    unsigned int left;
+    unsigned int top;
+    unsigned int rigth;
+    unsigned int bottom;
+    float entrpy_val;
+}EntrpyInfo;
+
+typedef struct __SiftFeatrue
+{
+    unsigned char *ptrfeature;
+    unsigned int featrueNum;
+    unsigned int bufsize;
+    unsigned int width_hr;
+    unsigned int height_hr;
+}SiftFeatrue;
+
 typedef struct __FeatrueGroup
 {
         std::string m_name;                // 模板名称
-        std::vector<ImgFeatrue> m_fgroup;  // 模板特征
+        std::vector<ImgFeatrue> m_fgroup;  // surf模板特征
+        std::vector<SiftFeatrue> m_ifgroup;// sift模板特征
 }FeatrueGroup;
+
+
 
 typedef struct __Compare_Para
 {
@@ -76,13 +99,18 @@ typedef struct __Compare_Para
     float thres;                            // blob response threshold
 }Compare_para;
 
+
+
+
+
 class MarkEngine
 {
 public:
     //MarkEngine构造
     //@LongbiaoPath 模板图片路径
     //@CheckRect 监播图像龙标检测区域
-    MarkEngine(std::string LongbiaoPath,Rect CheckRect);
+    MarkEngine(std::string LongbiaoPath,Rect CheckRect,
+               float rela_threshold,int abs_threshold);
 
     virtual ~MarkEngine();
 
@@ -114,7 +142,7 @@ private:
     float GetEntropy_gray(void *pIpImage);
 
     // 判断是否和特征匹配
-    bool  Ismatch( void * matches);
+    bool  Ismatch( void * matches,int threshold);
 
     // 从指定特征目录提取特征
     int   ExtractFromDir();
@@ -126,6 +154,10 @@ private:
     FeatrueGroup m_FModule;         // feature module
     float m_threshold;              // show status threshold
     Compare_para m_CompareParameter;// compare parameter
+    FILE *m_entrpy_fp;              // record entrpy to file
+    int m_mday;
+    float m_relative_threshold;     // 相对阈值
+    int m_absolute_threshold;       // 绝对阈值
 };
 
 

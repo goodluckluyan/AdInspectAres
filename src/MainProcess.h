@@ -73,7 +73,7 @@ struct TempletInfos
 
 
     TempletInfos( std::string &id, string &order_no,string &ad_name, int cinema_num,
-                   std::string &start,std::string &end,int show_order,int type,std::string &module_path)
+                   std::string &start,std::string &end,int show_order,int type,int show_type,std::string &module_path)
     {
         Id = id;
         OrderNO = order_no;
@@ -84,6 +84,7 @@ struct TempletInfos
         ShowOder = show_order;
         Type = type;
         ModulePath = module_path;
+        ShowType = show_type;
     }
 
     ~TempletInfos()
@@ -98,6 +99,7 @@ struct TempletInfos
     std::string End;
     int ShowOder;
     int Type;
+    int ShowType;
     std::string ModulePath;
 };
 
@@ -128,7 +130,7 @@ public:
 
     // 添加模板
     int WS_AddInspectModule(std::string &id,string &OrderNO,string &AdName,int CinemaNum,std::string& start,
-                            std::string & end,int ShowOder,int Type,std::string &ModulePath );
+                            std::string & end,int ShowOder,int Type,int ShowType,std::string &ModulePath );
 
     // 删除模板
     int WS_DelInspectModule(std::string &uuid);
@@ -142,7 +144,9 @@ public:
     static int BC_CheckLongbiaoComplete(void *userdata,void *pmarkjobresult);
 
     // 比较完成回调
-    static int BC_CompareComplete(void *ptr,std::string &taskid,std::map<std::string,TempletMatch> &templetResult);
+    static int BC_CompareComplete(void *ptr,std::string &taskid,
+                                  std::map<std::string,TempletMatch> &templetResult,
+                                  std::vector<suspicious_show> &vecss);
 
     int CompareComplete(std::string &taskid);
 

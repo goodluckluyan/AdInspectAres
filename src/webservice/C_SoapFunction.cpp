@@ -14,7 +14,7 @@ extern std::tr1::shared_ptr<CMainProcess> ptr_MainProcess ;
 int mons__AddInspectModule(struct soap* cSoap,std::string id,std::string OrderNO,std::string AdName,int CinemaNum,std::string start,
                            std::string end,int ShowOder,int Type,std::string ModulePath,int&ret)
 {
-   ret = ptr_MainProcess->WS_AddInspectModule(id,OrderNO,AdName,CinemaNum,start,end,ShowOder,Type,ModulePath);
+   ret = ptr_MainProcess->WS_AddInspectModule(id,OrderNO,AdName,CinemaNum,start,end,ShowOder,Type,1,ModulePath);
    return 0;
 }
 

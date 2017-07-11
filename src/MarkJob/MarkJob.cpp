@@ -48,7 +48,8 @@ MarkJob::MarkJob()
 MarkJob::~MarkJob()
 {
 }
-int MarkJob::Initialize(int max_frame_count,char *ppath_mark,Rect check_rect)
+int MarkJob::Initialize(int max_frame_count,char *ppath_mark,Rect check_rect,
+                        float rela_threshold,int abs_threshold)
 {
 	int ret = MARK_JOB_SUCCESS;
 	char buff_temp[512] = {'\0'};
@@ -66,7 +67,7 @@ int MarkJob::Initialize(int max_frame_count,char *ppath_mark,Rect check_rect)
 
 	m_markjob.max_frame_count = max_frame_count;
 
-	m_pmarkengine = new MarkEngine(ppath_mark,check_rect);
+    m_pmarkengine = new MarkEngine(ppath_mark,check_rect,rela_threshold,abs_threshold);
 
 	ret = m_pmarkengine->LoadFeatrue();
 	if( !ret )

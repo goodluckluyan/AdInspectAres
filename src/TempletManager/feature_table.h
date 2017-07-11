@@ -1,4 +1,4 @@
-#ifndef _FEATURE_TABLE_H
+﻿#ifndef _FEATURE_TABLE_H
 #define _FEATURE_TABLE_H
 
 #include <stdio.h>

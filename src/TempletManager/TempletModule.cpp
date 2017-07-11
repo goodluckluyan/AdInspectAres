@@ -365,6 +365,8 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
     }
 
 
+
+
     while(1)
     {
         ///运行状态
@@ -405,7 +407,6 @@ int TempletManager::CreateTaskTemplet(TASK_ITEM *task_item)
                 {
                     ///解码一帧成功，保存图片
                     SaveBmp(pInputCodecContext, ptrOutFrame, videoWidth, videoHeight,dst_videoWidth,dst_videoHeight ,nFrame,bmp_path);
-                    printf("%d.bmp save succeed!!!",nFrame);
                     /////////////记录日志/////////////
                     sprintf(buff_temp,"%d.bmp save succeed!!!",nFrame);
                     g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
@@ -720,7 +721,8 @@ int TempletManager::GetAllTemplets(std::string &inspecttm,TEMPLET_LIST &templet_
             printf("frameRate:%s,		frequency:%s\n",pTaskItem->frameRate,pTaskItem->frequency);
             printf("videoWidth * videoHeight: %s*%s\n",pTaskItem->videoWidth,pTaskItem->videoHeight);
             printf("dstVideoWidth * dstVideoHeight: %s*%s\n",pTaskItem->dstVideoWidth,pTaskItem->dstVideoHeight);
-            printf("type:%s,		realDuration:%s\n",pTaskItem->realDuration,pTaskItem->type);
+			printf("realDuration:%s,		type:%s\n",pTaskItem->realDuration,pTaskItem->type);
+			printf("show_type:%s\n",pTaskItem->show_type);
             ///printf("description:%s\n",pTaskItem->description);
 
             printf("-----------------------------------------------\n");
@@ -739,18 +741,21 @@ int TempletManager::GetAllTemplets(std::string &inspecttm,TEMPLET_LIST &templet_
             //sprintf(templet_item->ad_fileName,"%s",pTaskItem->fileName);
             sprintf(templet_item->ad_fileName,"%s",pTaskItem->orig_fileName);
 
-            templet_item->dstVideoWidth = new char[BUFF_SIZE_255];
-            memset(templet_item->dstVideoWidth,0,BUFF_SIZE_255);
-            sprintf(templet_item->dstVideoWidth,"%s",pTaskItem->dstVideoWidth);
+			templet_item->dstVideoWidth = new char[BUFF_SIZE_50];
+			memset(templet_item->dstVideoWidth,0,BUFF_SIZE_50);
+			sprintf(templet_item->dstVideoWidth,"%s",pTaskItem->dstVideoWidth);
 
-            templet_item->dstVideoHeight = new char[BUFF_SIZE_255];
-            memset(templet_item->dstVideoHeight,0,BUFF_SIZE_255);
-            sprintf(templet_item->dstVideoHeight,"%s",pTaskItem->dstVideoHeight);
+			templet_item->dstVideoHeight = new char[BUFF_SIZE_50];
+			memset(templet_item->dstVideoHeight,0,BUFF_SIZE_50);
+			sprintf(templet_item->dstVideoHeight,"%s",pTaskItem->dstVideoHeight);
 
+			templet_item->show_type = new char[BUFF_SIZE_50];
+			memset(templet_item->show_type,0,BUFF_SIZE_50);
+			sprintf(templet_item->show_type,"%s",pTaskItem->show_type);
             duration = atoi(pTaskItem->realDuration);
             frequency = atoi(pTaskItem->frequency);
             templet_item->picture_quantity = duration * frequency;
-            ///sprintf(templet_item->ad_order,"",pTaskItem->ad_order);
+
             templet_item->ad_order = atoi(pTaskItem->ad_order);
             templet_item->featrue_type = new char[BUFF_SIZE_20];
             sprintf(templet_item->featrue_type,"%s",pTaskItem->type);
@@ -885,6 +890,10 @@ int TempletManager::GetAllTemplets(std::string &inspecttm,TEMPLET_LIST &templet_
 int TempletManager::DeleteTemplet_list(TEMPLET_LIST *pTemplet_list)
 {
     int iRet = RET_SUCCESS;
+	///////////////记录日志///////////////////
+	sprintf(buff_temp,"DeleteTemplet_list start!!! \n");
+	g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+	/////////////////////////////////////////
 
     if(pTemplet_list !=NULL)
     {
@@ -926,6 +935,11 @@ int TempletManager::DeleteTemplet_list(TEMPLET_LIST *pTemplet_list)
                 (*itTemplet)->dstVideoWidth=NULL;
             }
 
+			if(NULL != (*itTemplet)->show_type)
+            {
+                delete [] (*itTemplet)->show_type;
+                (*itTemplet)->show_type=NULL;
+            }
             if(NULL != (*itTemplet)->featrue_type)
             {
                 delete [] (*itTemplet)->featrue_type;
@@ -936,6 +950,10 @@ int TempletManager::DeleteTemplet_list(TEMPLET_LIST *pTemplet_list)
     }
     pTemplet_list->clear();
 
+	///////////////记录日志///////////////////
+	sprintf(buff_temp,"DeleteTemplet_list end!!! \n");
+	g_templet_logwrite.PrintLog(MyLogger::INFO,"%s",buff_temp);
+	/////////////////////////////////////////
 
     return iRet;
 }

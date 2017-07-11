@@ -151,6 +151,7 @@ int CompareEngine::Compare(std::string &taskid,time_t tm,time_t longbiao_pos,Fra
     m_curtaskid = taskid;
     m_curtask_start_tm = tm;
     m_curlongbiao_pos = longbiao_pos;
+    m_nCompareCnt = 0;
     Run();
     return 0;
 }
@@ -404,42 +405,46 @@ int CompareEngine::Routine()
     }
 
     // 保存多播图片
-//    int sslen=vecss.size();
-//    for(int i = 0 ;i < sslen ; i++)
-//    {
-//        suspicious_show &ss = vecss[i];
-//        TempletMatch tm;
-//        tm.inspect_index_start = ss.start;
-//        tm.inspect_index_end = ss.end;
+    int sslen=vecss.size();
+    for(int i = 0 ;i < sslen ; i++)
+    {
+        suspicious_show &ss = vecss[i];
+        TempletMatch tm;
+        tm.inspect_ts_start = ss.start;
+        tm.inspect_ts_end = ss.end;
+        tm.inspect_index_start =  ss.index_start;
+        tm.inspect_index_end = ss.index_end;
 
-//        std::string videopath;
-//        if( para->m_match_store_path.rfind("/")!= para->m_match_store_path.size()-1)
-//        {
-//            videopath = para->m_match_store_path+"/";
-//        }
-//        else
-//        {
-//            videopath = para->m_match_store_path  ;
-//        }
+        std::string videopath;
+        if( para->m_match_store_path.rfind("/")!= para->m_match_store_path.size()-1)
+        {
+            videopath = para->m_match_store_path+"/";
+        }
+        else
+        {
+            videopath = para->m_match_store_path  ;
+        }
 
-//        char idbuf[64]={'\0'};
-//        snprintf(idbuf,64,"%s-%d",m_curtaskid.c_str(),i+1);
-//        videopath = videopath + "Result/" + std::string(idbuf);
-//        tm.resultpath = videopath;
-//        ss.imgresult_path = videopath;
-//        SaveInspectImage(tm);
-//    }
+        char idbuf[64]={'\0'};
+        snprintf(idbuf,64,"%s-%d",m_curtaskid.c_str(),i+1);
+        videopath = videopath + "Result/" + std::string(idbuf);
+        tm.resultpath = videopath;
+        tm.vediofilename = idbuf;   //用作图片名称的前缀
+        ss.imgresult_path = videopath;
+        ss.vedio_filename = idbuf;  //用作视频下载时的文件名称
+        SaveInspectImage(tm);
+    }
 
     // 结果保存到数据库,写两份AdInspect和oristarmr各写一份
     InsertResult_DB();
     InsertResultToADInspect_DB();
-//    InsertSuspiciousShow_DB(vecss);
-    InsertSuspiciousShowToAdInspect_DB(vecss);
+    InsertSuspiciousShow_DB(vecss);
+//    InsertSuspiciousShowToAdInspect_DB(vecss);
 
     // 回调函数
     if(NULL != m_ptrCompareDoneFun)
     {
-        m_ptrCompareDoneFun(m_ptrUser,m_curtaskid,m_mapTempletMatch);
+        m_ptrCompareDoneFun(m_ptrUser,m_curtaskid,m_mapTempletMatch,vecss);
     }
 
     // 释放模板空间
@@ -452,7 +457,9 @@ int CompareEngine::Routine()
 
     time_t costtm_e;
     time(&costtm_e);
-    loginfo("Finish Compare %s(cost time:%d sec)......",m_curtaskid.c_str(),costtm_e - costtm_s);
+    int duringsec = costtm_e - costtm_s;
+    loginfo("Finish Compare %s(cost time:%d sec,compare count:%d,average count persecond:%d)",
+            m_curtaskid.c_str(),duringsec,m_nCompareCnt,m_nCompareCnt/duringsec);
 
     return 0;
 }
@@ -630,7 +637,7 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                                                 );
 
                 float weight = static_cast<float>(matchcnt)/((ptrPIC->quantity+inspect->featrueNum)/2);
-
+                m_nCompareCnt++;
 
                 logdebug("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
                         tm.ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
@@ -719,6 +726,7 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
                 logdebug("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
                         ptrTemplet->ad_fileName,ptrPIC->picture_order,matchcnt,weight,m_threshold);
 
+                m_nCompareCnt++;
                 if(weight >= m_threshold && matchcnt > m_match_count_threshold)
                 {
                     loginfo("Compare [%s:%d] matchcnt:%d weight:%.4f threshold:%.2f",
@@ -1000,27 +1008,28 @@ int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecs
     // 比较龙标时间和倒一的广告之间的时间间隔
     C_Para *para = C_Para::GetInstance();
     int calc_cnt = vecTmp.size();
+    int longbiao_pos = m_curtask_start_tm + m_curlongbiao_pos - 6;
     if(calc_cnt > 0)
     {
         if(vecTmp[0].second.inspect_ts_end > 0 && m_curlongbiao_pos > 0)
         {
-            int interval= m_curlongbiao_pos-6-vecTmp[0].second.inspect_ts_end-1;
+            int interval= longbiao_pos - vecTmp[0].second.inspect_ts_end-1;
             if(interval >= para->m_InvalidateShowThresholdSec)
             {
                 suspicious_show ss;
-                ss.adback = "longbiao";
+                ss.adback = "";//longbiao，在数据空中后广告空就是为龙标
                 ss.adprev = vecTmp[0].second.ptrTemplet->ad_fileName;
                 ss.start = vecTmp[0].second.inspect_ts_end + 1;
-                ss.end = m_curlongbiao_pos - 6;// 比对成功的一般为龙标的后4秒
+                ss.end = longbiao_pos;// 比对成功的一般为龙标的后4秒
                 vecss.push_back(ss);
             }
         }
     }
 
-    // 计算广告间的时长，大于5秒则认为可疑播放
+    // 计算广告间的时长，大于指定秒数则认为可疑播放
     for(int i = 1 ;i<calc_cnt;i++)
     {
-        unsigned int interval;
+        int interval;
         if(vecTmp[i-1].second.inspect_ts_start>0 && vecTmp[i].second.inspect_ts_end>0)
         {
             interval= vecTmp[i-1].second.inspect_ts_start-vecTmp[i].second.inspect_ts_end-1;
@@ -1031,6 +1040,8 @@ int CompareEngine::SummaryResultsAndLocatorPo(std::vector<suspicious_show> &vecs
                 ss.adprev = vecTmp[i].second.ptrTemplet->ad_fileName;
                 ss.start = vecTmp[i].second.inspect_ts_end + 1;
                 ss.end = vecTmp[i-1].second.inspect_ts_start -1;
+                ss.index_start =  vecTmp[i].second.inspect_index_end + 1;
+                ss.index_end = vecTmp[i-1].second.inspect_index_start - 1;
                 vecss.push_back(ss);
             }
         }
@@ -1408,7 +1419,7 @@ bool CompareEngine::InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss)
 {
 
     CppMySQL3DB SuspiciousResultDB;
-
+    C_Para * para = C_Para::GetInstance();
     if(SuspiciousResultDB.open(m_strDB_IP.c_str(),m_strDB_User.c_str(),
                             m_strPasswd.c_str(),"oristarmr",m_nPort) == -1)
     {
@@ -1434,13 +1445,54 @@ bool CompareEngine::InsertSuspiciousShow_DB(std::vector<suspicious_show> &vecss)
         endtm.getTimeStr(strEnd);
         int imgsize =  ss.end - ss.start + 1;
 
+        std::string head = para->m_match_store_path;
+        if( head.rfind("/")!= head.size()-1)
+        {
+            head += "/";
+        }
+
+
+        if( ss.imgresult_path.rfind("/")!= ss.imgresult_path.size()-1)
+        {
+            ss.imgresult_path += "/";
+        }
+
+         // 去掉-,id、mp4文件名不能有-
+        std::string rawname = m_curtaskid;
+        size_t pos = 0;
+        while(pos!=std::string::npos)
+        {
+            pos = rawname.find('-',pos);
+            if(pos != std::string::npos)
+            {
+                rawname.erase(pos,1);
+            }
+        }
+
+        pos = 0;
+        while(pos!=std::string::npos)
+        {
+            pos = ss.vedio_filename.find('-',pos);
+            if(pos != std::string::npos)
+            {
+                ss.vedio_filename.erase(pos,1);
+            }
+        }
+
         char idbuf[64]={'\0'};
-        snprintf(idbuf,64,"%s-%d",m_curtaskid.c_str(),i+1);
+        snprintf(idbuf,64,"%s%d",rawname.c_str(),i+1);
+
+
+        std::string vediofullpath,fixbasepath;
+        vediofullpath = ss.imgresult_path + ss.vedio_filename + ".mp4";
+        std::string compareimgpath = ss.imgresult_path.substr(ss.imgresult_path.find(head)+head.size());
+        std::string  vediopath = vediofullpath.substr(vediofullpath.find(head)+head.size());
+
         snprintf(sql,1024,"insert into app_monitor_multiple(id,create_time,advert_back,advert_previous,"
-                          "compare_imgpath,hall_no,inspect_end_time,inspect_start_time,monitor_status,imglen) "
-                          "values(\"%s\",\'%s\',\"%s\",\"%s\",\"%s\",%d,\'%s\',\'%s\',%d,%d)",
-                 idbuf,strtm.c_str(),ss.adback.c_str(),ss.adprev.c_str(),
-                 ss.imgresult_path.c_str(),m_hallid, strEnd.c_str(),strStart.c_str(),4,imgsize);// 多播
+                          "videopath,compare_imgpath,hall_no,inspect_end_time,inspect_start_time,monitor_status,imglen) "
+                          "values(\"%s\",\'%s\',\"%s\",\"%s\",\"%s\",\"%s\",%d,\'%s\',\'%s\',%d,%d)",
+                 idbuf,strtm.c_str(),ss.adback.c_str(),ss.adprev.c_str(),vediopath.c_str(),
+                 compareimgpath.c_str(),m_hallid, strEnd.c_str(),strStart.c_str(),4,imgsize);// 多播
         int nResult = SuspiciousResultDB.execSQL(sql);
         if(nResult != -1)
         {
@@ -1553,7 +1605,19 @@ bool CompareEngine::SaveInspectImage(TempletMatch &tm)
             }
             else
             {
-                snprintf(name,256,"%s-%d.jpg",m_curtaskid.c_str(),index);
+                std::string rawname = tm.vediofilename;
+
+                // 去掉-,图片文件主名不能有-
+                size_t pos = 0;
+                while(pos!=std::string::npos)
+                {
+                    pos = rawname.find('-',pos);
+                    if(pos != std::string::npos)
+                    {
+                          rawname.erase(pos,1);
+                    }
+                }
+                snprintf(name,256,"%s-%d.jpg",rawname.c_str(),index);
             }
 
             std::string savepath = tm.resultpath;
@@ -1565,7 +1629,6 @@ bool CompareEngine::SaveInspectImage(TempletMatch &tm)
             std::string SavePath = savepath + std::string(name);
             CFileEx::CreateFolderForFile(SavePath.c_str());
             Img.SaveJpeg(SavePath);
-
         }
     }
 }

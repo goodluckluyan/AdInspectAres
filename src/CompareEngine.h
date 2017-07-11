@@ -63,8 +63,22 @@ typedef struct _SearchArea
    std::list<_TEMPLET_ITEM*> m_lsSearchTempletPtr;
 }SearchArea;
 
+struct suspicious_show
+{
+    std::string adback;
+    std::string adprev;
+    unsigned int start;
+    unsigned int end;
+    unsigned int index_start;
+    unsigned int index_end;
+    std::string imgresult_path;
+    std::string vedio_filename;
+};
+
+
 typedef std::tr1::shared_ptr<SearchArea> ptrSearchArea;
-typedef int (*BC_CompareDone)(void *ptr,std::string &taskid,std::map<std::string,TempletMatch> &templetResult) ;
+typedef int (*BC_CompareDone)(void *ptr,std::string &taskid,std::map<std::string,TempletMatch> &templetResult,
+                               std::vector<suspicious_show> &vecss) ;
 
 
 typedef struct _SpaceRelation
@@ -141,14 +155,6 @@ private:
     MatchItem const _raw;
 };
 
-struct suspicious_show
-{
-    std::string adback;
-    std::string adprev;
-    unsigned int start;
-    unsigned int end;
-    std::string imgresult_path;
-};
 
 
 class CompareEngine :public OS_Thread
@@ -254,6 +260,7 @@ private:
     int m_nPort ;
     unsigned int  m_curtask_start_tm;
     unsigned int  m_curlongbiao_pos;
+    int m_nCompareCnt;
 
 
 
@@ -438,6 +445,7 @@ public:
     unsigned int m_lsize_hr;
     unsigned int m_nWidth;
     unsigned int m_nHeight;
+    unsigned int m_nCompareCnt;
 };
 
 #endif // COMPAREENGINE_H

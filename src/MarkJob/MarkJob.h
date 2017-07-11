@@ -159,7 +159,8 @@ public:
 	virtual ~MarkJob();
 
 	/// 初始化模块
-	int Initialize(int max_frame_count,char *ppath_mark,Rect check_rect);
+    int Initialize(int max_frame_count,char *ppath_mark,Rect check_rect,
+                   float rela_threshold,int abs_threshold);
 
 	/// 卸载模块
 	int UnInitialize();

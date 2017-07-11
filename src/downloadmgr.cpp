@@ -176,17 +176,9 @@ bool CDownLoadMgr::AddDownTask()
     unsigned int iEndTime = t2.getTimeInt() + m_endsec;
 
 
-    // 判断是否还是当天
-    C_Time last;
-    last.setTimeInt(m_lastsec);
-    if(last.getDay()!= localtime(&iCurTime)->tm_mday)
-    {
-        m_lastsec = iStarTime;
-    }
-
-
     // 判断在不在放映时间内
-    if(iCurTime > iEndTime + m_TimeStep || iCurTime < iStarTime + m_TimeStep)
+    if((m_lastsec>iEndTime || m_lastsec<iStarTime) &&
+            (iCurTime > iEndTime + m_TimeStep || iCurTime < iStarTime + m_TimeStep))
     {
         C_Time cur,start,end;
         cur.setTimeInt(m_lastsec);
@@ -200,6 +192,14 @@ bool CDownLoadMgr::AddDownTask()
         loginfo("Current time not in show time range(%s %s-%s)",curTime.c_str(),
                 strStart.c_str(),strEnd.c_str());
         return false;
+    }
+
+    // 判断是否还是当天
+    C_Time last;
+    last.setTimeInt(m_lastsec);
+    if(last.getDay()!= localtime(&iCurTime)->tm_mday)
+    {
+        m_lastsec = iStarTime;
     }
 
     item.start = m_lastsec ;

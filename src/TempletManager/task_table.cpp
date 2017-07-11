@@ -1,4 +1,4 @@
-#include "task_table.h"
+﻿#include "task_table.h"
 #include <string.h>
 ///#include "zdb.h"
 
@@ -23,6 +23,7 @@ COLUMN_VALUE_MAP g_task_column_value_map[]=
 	{"realDuration",NULL},
 	{"featureFilePath",NULL},
 	{"ad_order",NULL},
+	{"show_type",NULL},
 	{"description",NULL}
 };
 
@@ -129,6 +130,10 @@ void TaskTable::ClearTableItemSpace(TASK_ITEM *task_item)
 	{
 		memset(task_item->ad_order,0,BUFF_SIZE_50);
 	}
+	if(NULL!=task_item->show_type)
+	{
+		memset(task_item->show_type,0,BUFF_SIZE_50);
+	}
 }
 
 void TaskTable::NewTableItemSpace(TASK_ITEM **task_item)
@@ -161,6 +166,7 @@ void TaskTable::NewTableItemSpace(TASK_ITEM **task_item)
 	(*task_item)->realDuration=new char[BUFF_SIZE_50];
 	(*task_item)->featureFilePath=new char[BUFF_SIZE_255];
 	(*task_item)->ad_order=new char[BUFF_SIZE_50];
+	(*task_item)->show_type=new char[BUFF_SIZE_50];
 	ClearTableItemSpace(*task_item);
 }
 
@@ -269,6 +275,11 @@ void TaskTable::DeleteItemSpace(TASK_ITEM **task_item)
 	{
 		delete [] (*task_item)->ad_order;
 		(*task_item)->ad_order=NULL;
+	}
+	if(NULL!=(*task_item)->show_type)
+	{
+		delete [] (*task_item)->show_type;
+		(*task_item)->show_type=NULL;
 	}
 	if(NULL != *task_item)
 	{
@@ -921,7 +932,8 @@ int TaskTable::MapItemVarToArray(TASK_ITEM *task_item)
 		m_task_column_value_map[16].pvalue_var = task_item->realDuration;
 		m_task_column_value_map[17].pvalue_var = task_item->featureFilePath;
         m_task_column_value_map[18].pvalue_var = task_item->ad_order;
-        m_task_column_value_map[19].pvalue_var = task_item->description;
+		m_task_column_value_map[19].pvalue_var = task_item->show_type;
+		m_task_column_value_map[20].pvalue_var = task_item->description;
 		
 	}
 
