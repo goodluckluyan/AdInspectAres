@@ -380,16 +380,16 @@ public:
     void Savebmp_HR(std::string fullpath,int width,int height)
     {
 
-        int lineBytes = width*3;
         FILE *pDestFile = fopen(fullpath.c_str(), "wb");
         if(NULL == pDestFile)
         {
             printf("open file %s failed\n",fullpath.c_str());
             return;
         }
+
         BITMAPFILEHEADER btfileHeader;
         btfileHeader.bfType = 0x4d42;//mb
-        btfileHeader.bfSize = lineBytes*height;
+        btfileHeader.bfSize = m_linesize_hr*height;
         btfileHeader.bfReserved1 = 0;
         btfileHeader.bfReserved2 = 0;
         btfileHeader.bfOffBits = sizeof(BITMAPFILEHEADER);
@@ -401,7 +401,7 @@ public:
         bitmapinfoheader.biPlanes = 1;
         bitmapinfoheader.biBitCount = 24;
         bitmapinfoheader.biCompression = 0;
-        bitmapinfoheader.biSizeImage = lineBytes*height;
+        bitmapinfoheader.biSizeImage = m_linesize_hr*height;
         bitmapinfoheader.biXPelsPerMeter = 0;
         bitmapinfoheader.biYPelsPerMeter = 0;
         bitmapinfoheader.biClrUsed = 0;
@@ -412,7 +412,7 @@ public:
         fwrite(&bitmapinfoheader, sizeof(BITMAPINFODEADER), 1, pDestFile);
         for(i=height-1; i>=0; i--)
         {
-           fwrite(m_pRGB24_HR+i*lineBytes, lineBytes, 1, pDestFile);
+           fwrite(m_pRGB24_HR+i*m_linesize_hr, m_linesize_hr, 1, pDestFile);
         }
 
         fclose(pDestFile);
@@ -422,15 +422,17 @@ public:
     {
         int width = right - left;
         int height = bottom - top;
-        m_pRGB24_HR = (char *) malloc(width*height*3);
-        m_lsize_hr = width*height*3;
+        m_linesize_hr = ((width*24+31)>>5)<<2; //补零后的每行的长度
+        m_lsize_hr = m_linesize_hr*height;
+        m_pRGB24_HR = (char *) malloc(m_lsize_hr);
+        memset(m_pRGB24_HR,0,m_lsize_hr);
         int linesize = width*3;
         int rawlinesize = m_nWidth*3;
         int rawstart = (top-1)*rawlinesize+left*3;
 
         for(int i = 0 ;i < height ;i++)
         {
-            memcpy(m_pRGB24_HR+linesize*i,m_pBGR24+rawstart+rawlinesize*i,linesize);
+            memcpy(m_pRGB24_HR+m_linesize_hr*i,m_pBGR24+rawstart+rawlinesize*i,linesize);
         }
         return m_pRGB24_HR;
 
@@ -443,6 +445,7 @@ public:
 
     unsigned int m_lsize;
     unsigned int m_lsize_hr;
+    unsigned int m_linesize_hr;
     unsigned int m_nWidth;
     unsigned int m_nHeight;
     unsigned int m_nCompareCnt;

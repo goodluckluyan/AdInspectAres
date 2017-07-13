@@ -501,9 +501,14 @@ int CompareEngine::Image_compare(int index,ptrSearchArea inspect,bool bSpeedPrio
             if(m_rect.width()>0&&m_rect.height()>0)
             {
                ptrbuf = buf.SetHRRect(m_rect.left,m_rect.top,m_rect.right,m_rect.bottom);
+
                bufsize = buf.m_lsize_hr;
                width = m_rect.width();
                height = m_rect.height();
+//               char namebuf[64]={'\0'};
+//               snprintf(namebuf,64,"/usr/local/AdInspectAres/Result/image-%d.bmp",index);
+//               buf.Savebmp_HR(namebuf,width,height);
+
             }
 
             if(NULL == ptrbuf)
